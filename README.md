@@ -7,3 +7,6 @@
 - implement stocks and options logic
 - implement another model and think about how functions/types could be generalised 
 - research making impossible states unrepresentable in Haskell
+
+
+

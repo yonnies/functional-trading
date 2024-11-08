@@ -56,7 +56,7 @@ instance Num ValProc where
     vp1 * vp2 = lift2 (*) vp1 vp2 
     abs vp = lift abs vp
     signum vp = lift signum vp
-    fromInteger n = VP [[fromInteger n]]
+    fromInteger n = VP [[fromInteger n]] -- this seems wrong
     negate vp = lift negate vp
 
 
