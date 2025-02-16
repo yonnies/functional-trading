@@ -9,7 +9,12 @@ type LatticeModel a = [[a]]
 
 type ValSlice a = [a]
 newtype PR a = PR ([ValSlice a])
-    deriving Show
+
+instance Show a => Show (PR a) where
+    show (PR layers) = unlines $ zipWith formatLayer [0..] layers
+      where
+        formatLayer :: Int -> ValSlice a -> String
+        formatLayer n vals = "Step " ++ show n ++ ": " ++ unwords (map show vals)
 
 instance Num a => Num (PR a) where
     (+) = lift2 (+)
@@ -24,7 +29,6 @@ instance Eq a => Eq (PR a) where
   (PR pr1) == (PR pr2) = pr1 == pr2
 
 instance Ord a => Ord (PR a) where
-  max = lift2 max
   (PR pr1) <= (PR pr2) = pr1 <= pr2
 
 lift :: (a -> b) -> PR a -> PR b

@@ -16,7 +16,7 @@ date s = case parseTimeM True defaultTimeLocale "%d-%m-%Y" s of
 -- Today’s date
 -- Example placeholder, should be dynamically fetched in a real system
 today :: Date
-today = date "01-02-2025"
+today = date "01-11-2024"
 
 -- Used for contracts with infinite horizon (expiry date)
 infiniteHorizon :: Date
