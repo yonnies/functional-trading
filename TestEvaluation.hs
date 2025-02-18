@@ -83,3 +83,13 @@ takePR n (PR x) = PR (take n x)
 -- [71.7487192692069,13.318807679406989,-24.684861362738847],
 -- [113.33408559819057,38.16101360716087,-10.191517480406192,-41.363614189375795],
 -- [168.71415507871552,71.23693702641796,9.11999999999999,-30.463750363842422,-55.68832465668964]]
+
+
+testDoubleNegation :: Contract
+testDoubleNegation = give (give (One GBP))
+
+testScalingOr :: Contract
+testScalingOr = (Or (Scale (Konst 2) (One GBP)) (Scale (Konst 2) (One USD)))
+
+testScalingAnd :: Contract
+testScalingAnd = (And (Scale (Konst 3) (One GBP)) (Scale (Konst 2) (One USD)))

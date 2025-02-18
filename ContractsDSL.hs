@@ -37,13 +37,15 @@ data Contract
     | AcquireOn Date Contract       -- Sets the aquisition date of a contract where the discounting should begin
     | AcquireOnBefore Date Contract -- Shows oppportunity to acquire a contract anytime before a certain date 
     | Scale (Obs Double) Contract   -- Scales a contract by a numeric observable 
+    deriving (Show)
 
 ----------------------------- Observables -----------------------------
 
 data Obs a where
     Konst :: a -> Obs a             -- Observable whose value remains unchanged at any point in time
     StockPrice :: Stock -> Obs a    -- Observable that represents price of a stock in different points of time
-
+    deriving (Show)
+    
 ----------------------------------------------------
 -- Lower case notation to prevent typo bugs 
 
