@@ -5,96 +5,81 @@ import ModelUtils
 
 ------------------------- Optimisation layer -------------------------
 
--- | Optimise a contract by rewriting it using known equivalences.
 optimiseContract :: Contract -> Contract
-optimiseContract contract = case contract of
-    -- Avoiding double scale computation
-    Or (Scale obs1 c1) (Scale obs2 c2) -> 
-        case (obs1, obs2) of
-            (Konst k, Konst j) | k == j && k >= 0 -> 
-                Scale obs1 (optimiseContract (Or c1 c2))
-            _ -> 
-                Or (Scale obs1 (optimiseContract c1)) (Scale obs2 (optimiseContract c2))
+-- Double negation: give (give c) = c
+optimiseContract (Give (Give c)) = optimiseContract c
+optimiseContract (Give c) = Give (optimiseContract c)
 
-    -- Double negation: give (give c) = c
-    Give (Give c) ->
-        optimiseContract c
+-- Avoiding double scale computation
+optimiseContract (Or (Scale obs1 c1) (Scale obs2 c2))  
+    | Konst k <- obs1, Konst j <- obs2, k == j, k >= 0 = Scale obs1 (optimiseContract (Or c1 c2))
+    | otherwise = Or (Scale obs1 (optimiseContract c1)) (Scale obs2 (optimiseContract c2))
+optimiseContract (Or c1 c2) = Or (optimiseContract c1) (optimiseContract c2)
 
-    -- Removing unecessary None computation
-    And None c ->
-        optimiseContract c
-    And c None ->
-        optimiseContract c
-    And c1 c2 -> 
-        if c1 == c2 then
-            Scale (Konst 2) (optimiseContract c1)
+optimiseContract (And c1 c2)  
+    | c1 == c2  = Scale (Konst 2) (optimiseContract c1)  -- Duplicate contract simplification
+    | c1 == None = optimiseContract c2  -- Remove unnecessary None
+    | c2 == None = optimiseContract c1
+    | otherwise  = And (optimiseContract c1) (optimiseContract c2)
 
-    -- Nested aquire on
-    AcquireOn d1 (AcquireOn d2 c) ->
-        if d1 < d2 then AcquireOn d1 (optimiseContract c)
-        else AcquireOn d1 (AcquireOn d2 c)
+-- Nested acquire on: AcquireOn d1 (AcquireOn d2 c) → AcquireOn (min d1 d2) c
+optimiseContract (AcquireOn d1 (AcquireOn d2 c))  
+    | d1 <= d2   = AcquireOn d1 (optimiseContract c)
+    | otherwise = AcquireOn d1 (optimiseContract (AcquireOn d2 c))
+optimiseContract (AcquireOn d c) = AcquireOn d (optimiseContract c)
 
-    -- Recursively optimising subcontracts
-    And c1 c2 ->
-        And (optimiseContract c1) (optimiseContract c2)
-    Or c1 c2 ->
-        Or (optimiseContract c1) (optimiseContract c2)
-    Give c ->
-        Give (optimiseContract c)
-    AcquireOn d c ->
-        AcquireOn d (optimiseContract c)    
-    AcquireOnBefore d c ->
-        AcquireOnBefore d (optimiseContract c)
-    Scale obs c ->
-        Scale obs (optimiseContract c)
+optimiseContract (AcquireOnBefore d c) = AcquireOnBefore d (optimiseContract c)
 
-    -- Base cases: None, One, etc., are already in simplest form
-    _ -> contract
+optimiseContract (Scale obs c) = Scale obs (optimiseContract c)
+
+-- Base cases: None, One, etc., are already in simplest form
+optimiseContract contract = contract
 
 
 --------------------------- Evaluation ---------------------------
 
 eval_contract :: Model -> Contract -> Date -> Either String (PR Double)
-eval_contract model@(Model startDate stepSize constPr discount snell exchange stockModel) = eval
+eval_contract model@(Model startDate stepSize constPr discount snell exchange stockModel) contract date = 
+    eval (optimiseContract contract) date
     where 
-        eval None date 
-            | date == infiniteHorizon = Left "Error: Contract has no acquisition date set."
+        eval None d 
+            | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
             | otherwise = Right (constPr 0)
         
-        eval (One cur) date 
-            | date == infiniteHorizon = Left "Error: Contract has no acquisition date set."
+        eval (One cur) d 
+            | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
             | otherwise = Right (exchange cur)
 
-        eval (Give c) date = fmap negate (eval c date)
+        eval (Give c) d = fmap negate (eval c d)
 
-        eval (And c1 c2) date = do
-            pr1 <- eval c1 date
-            pr2 <- eval c2 date
+        eval (And c1 c2) d = do
+            pr1 <- eval c1 d
+            pr2 <- eval c2 d
             return (pr1 + pr2)
 
-        eval (Or c1 c2) date = do
-            pr1 <- eval c1 date
-            pr2 <- eval c2 date
+        eval (Or c1 c2) d = do
+            pr1 <- eval c1 d
+            pr2 <- eval c2 d
             return (max pr1 pr2)
 
-        eval (AcquireOn d c) date
-            | d > date  = Left $ "Error: Attemting to acquire contract with an earlier expiry date at a later date."
+        eval (AcquireOn d2 c) d1
+            | d2 > d1  = Left $ "Error: Attemting to acquire contract with an earlier expiry date at a later date."
             | otherwise = do
-                val <- eval c d
-                return (discount d val)
+                val <- eval c d2
+                return (discount d2 val)
 
-        eval (AcquireOnBefore d c) date
-            | d > date  = Left $ "Error: Attemting to acquire contract with an earlier expiry date at a later date."
+        eval (AcquireOnBefore d2 c) d1
+            | d2 > d1  = Left $ "Error: Attemting to acquire contract with an earlier expiry date at a later date."
             | otherwise = do
-                val <- eval c d
-                return (snell d val)
+                val <- eval c d2
+                return (snell d2 val)
 
-        eval (Scale obs c) date = do
-            val <- eval c date
+        eval (Scale obs c) d = do
+            val <- eval c d
             return ((eval_obs model obs) * val)
 
 eval_obs :: Model -> Obs Double -> PR Double
-eval_obs (Model startDate stepSize constPr discount snell exchange stockModel) = eval
+eval_obs (Model startd stepSize constPr discount snell exchange stockModel) = eval
     where 
         eval (Konst k) = constPr k
         eval (StockPrice stk) = stockModel stk

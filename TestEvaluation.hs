@@ -91,5 +91,5 @@ testDoubleNegation = give (give (One GBP))
 testScalingOr :: Contract
 testScalingOr = (Or (Scale (Konst 2) (One GBP)) (Scale (Konst 2) (One USD)))
 
-testScalingAnd :: Contract
-testScalingAnd = (And (Scale (Konst 3) (One GBP)) (Scale (Konst 2) (One USD)))
+testScalingOr2 :: Contract
+testScalingOr2 = AcquireOn (date "01-02-2025") (Or (Scale (Konst 2) (One GBP)) (Scale (Konst 2) (One USD)))
