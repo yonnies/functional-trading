@@ -37,8 +37,6 @@ lift f (PR xss) = PR [[f x | x <- xs] | xs <- xss]
 lift2 :: (a -> b -> c) -> PR a -> PR b -> PR c
 lift2 f (PR xss) (PR yss) = PR [[f x y | (x,y) <- zip xs ys ] | (xs,ys) <- zip xss yss]
 
-
-
 initLatticeModel :: ValSlice a -> (a -> a) -> (a -> a) -> LatticeModel a
 initLatticeModel prevLayer upFactor downFactor = 
     prevLayer : (initLatticeModel curLayer upFactor downFactor) 
@@ -140,22 +138,14 @@ exampleModel startDate stepSize = Model {
 
         -- for exchange rates and stock prices 
         _CCRModel :: Double -> Double -> Double -> LatticeModel Double
-        _CCRModel initVal volatility volNormFac = 
-            initLatticeModel [initVal] (\prev -> prev * exp (volatility * sqrt volNormFac)) (\prev -> prev * exp (- volatility * sqrt volNormFac)) 
+        _CCRModel initVal vol time = initLatticeModel [initVal] up down
+            where
+                up x = x * exp (vol * sqrt time)
+                down x = x * exp (-vol * sqrt time)
 
         -- for interest rates
         _HLIRModel :: Double -> Double -> Double -> LatticeModel Double
-        _HLIRModel initVal volatility volNormFac = 
-            initLatticeModel [initVal] (\prev -> prev + volatility * sqrt volNormFac) (\prev -> prev - volatility * sqrt volNormFac)
-    
--- _CCRModel :: Double -> Double -> Double -> LatticeModel
--- _CCRModel initVal vol time = initLatticeModel [initVal] up down
---   where
---     up x = x * exp (vol * sqrt time)
---     down x = x * exp (-vol * sqrt time)
-
--- _HLIRModel :: Double -> Double -> Double -> LatticeModel
--- _HLIRModel initVal vol time = initLatticeModel [initVal] up down
---   where
---     up x = x + vol * sqrt time
---     down x = x - vol * sqrt time
+        _HLIRModel initVal vol time = initLatticeModel [initVal] up down
+            where
+                up x = x + vol * sqrt time
+                down x = x - vol * sqrt time

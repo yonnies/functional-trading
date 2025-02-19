@@ -7,8 +7,8 @@
 - [x] implement stocks and options logic 
 - [x] test the functions with invalid contracts and decide on what the behavior should be (idea: return empty process) 
 - [x] custom value process print function
-- [ ] implement optimisation layer
-- [ ] implement caching
+- [x] implement optimisation layer
+- [x] implement caching
 - [ ] implement a contract that requires a Boolean obseravable
 - [ ] implement Asian options
 - [ ] implement Lookback options

@@ -57,7 +57,7 @@ unwrapPR (PR x) = x
 
 exampleModelInstance = exampleModel today 30
 
-zcdb12 = acquireOn (date "01-11-2028") ( scale (konst 1300) ( one GBP) )
+zcdb12 = acquireOn (date "01-11-2028") (scale (konst 1300) (one GBP))
 
 -- take for Processes
 takePR :: Int -> PR a -> PR a
