@@ -51,6 +51,9 @@ testContract =  ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 100
 
 invalidContract = AcquireOn (date "06-11-2028") ((Scale (Konst 10) (One GBP)) `And` (AcquireOn (date "06-12-2024") $ Give $ (Scale (Konst 5) (One GBP))))
 
+invalidAcquire :: Contract
+invalidAcquire = acquireOn (date "01-01-2026") (acquireOn (date "01-01-2025") ((one GBP) `Or` none))
+
 -- Helpers
 unwrapPR :: PR a -> [ValSlice a]
 unwrapPR (PR x) = x

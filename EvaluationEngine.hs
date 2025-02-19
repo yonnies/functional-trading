@@ -83,13 +83,13 @@ eval_contract_cache model@(Model startDate stepSize constPr discount snell excha
       return (max pr1 pr2)
     
     eval (AcquireOn d2 c) d1
-      | d2 > d1   = throwError "Error: Attempting to acquire contract with an earlier expiry date at a later date."
+      | d1 /= infiniteHorizon, d2 < d1 = throwError "Error: Attempting to acquire contract with an earlier expiry date at a later date."
       | otherwise = do
           val <- eval_contract_cache model c d2
           return (discount d2 val)
     
     eval (AcquireOnBefore d2 c) d1
-      | d2 > d1   = throwError "Error: Attempting to acquire contract with an earlier expiry date at a later date."
+      | d1 /= infiniteHorizon, d2 < d1 = throwError "Error: Attempting to acquire contract with an earlier expiry date at a later date."
       | otherwise = do
           val <- eval_contract_cache model c d2
           return (snell d2 val)
