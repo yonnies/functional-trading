@@ -21,7 +21,6 @@ optimiseContract (Or (Scale obs1 c1) (Scale obs2 c2))
 optimiseContract (Or c1 c2) = Or (optimiseContract c1) (optimiseContract c2)
 
 optimiseContract (And c1 c2)  
-    | c1 == c2  = Scale (Konst 2) (optimiseContract c1)  -- Duplicate contract simplification
     | c1 == None = optimiseContract c2  -- Remove unnecessary None
     | c2 == None = optimiseContract c1
     | otherwise  = And (optimiseContract c1) (optimiseContract c2)

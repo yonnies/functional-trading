@@ -10,11 +10,14 @@ type LatticeModel a = [[a]]
 type ValSlice a = [a]
 newtype PR a = PR ([ValSlice a])
 
-instance Show a => Show (PR a) where
+instance (Show a, RealFrac a) => Show (PR a) where
     show (PR layers) = unlines $ zipWith formatLayer [0..] layers
       where
         formatLayer :: Int -> ValSlice a -> String
-        formatLayer n vals = "Step " ++ show n ++ ": " ++ unwords (map show vals)
+        formatLayer n vals = "Step " ++ show n ++ ": " ++ unwords (map showRounded vals)
+
+        showRounded :: (RealFrac a, Show a) => a -> String
+        showRounded x = show (fromIntegral (round (x * 100)) / 100)
 
 instance Num a => Num (PR a) where
     (+) = lift2 (+)

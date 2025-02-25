@@ -81,13 +81,6 @@ takePR n (PR x) = PR (take n x)
 -- Step 3: 113.33408559819057 38.16101360716087 -10.191517480406192 -41.363614189375795
 -- Step 4: 168.71415507871552 71.23693702641796 9.11999999999999 -30.463750363842422 -55.68832465668964
 
--- VP [[16.652770825682584],
--- [40.398043697787344,-5.427224963853919],
--- [71.7487192692069,13.318807679406989,-24.684861362738847],
--- [113.33408559819057,38.16101360716087,-10.191517480406192,-41.363614189375795],
--- [168.71415507871552,71.23693702641796,9.11999999999999,-30.463750363842422,-55.68832465668964]]
-
-
 testDoubleNegation :: Contract
 testDoubleNegation = give (give (One GBP))
 
@@ -96,3 +89,10 @@ testScalingOr = (Or (Scale (Konst 2) (One GBP)) (Scale (Konst 2) (One USD)))
 
 testScalingOr2 :: Contract
 testScalingOr2 = AcquireOn (date "01-02-2025") (Or (Scale (Konst 2) (One GBP)) (Scale (Konst 2) (One USD)))
+
+-- c5 = european (date "24 Apr 2003") (
+--     zcb (date "12 May 2003") 0.4 GBP `and`
+--     zcb (date "12 May 2004") 9.3 GBP `and`
+--     zcb (date "12 May 2005") 109.3 GBP `and`
+--     give (zcb (date "26 Apr 2003") 100 GBP)
+-- )
