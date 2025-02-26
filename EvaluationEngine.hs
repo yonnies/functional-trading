@@ -9,34 +9,70 @@ import qualified Data.Map.Strict as Map
 
 ------------------------- Optimisation layer -------------------------
 
-optimiseContract :: Contract -> Contract
--- Double negation: give (give c) = c
-optimiseContract (Give (Give c)) = optimiseContract c
-optimiseContract (Give c) = Give (optimiseContract c)
+type Error = String
+
+optimiseContract :: Contract -> Date -> Either Error Contract 
+-- Double negation: Give (Give c) = c
+optimiseContract (Give (Give c)) d = optimiseContract c d
+optimiseContract (Give c) d = do
+  c' <- optimiseContract c d
+  return (Give c')
 
 -- Avoiding double scale computation
-optimiseContract (Or (Scale obs1 c1) (Scale obs2 c2))  
-    | Konst k <- obs1, Konst j <- obs2, k == j, k >= 0 = Scale obs1 (optimiseContract (Or c1 c2))
-    | otherwise = Or (Scale obs1 (optimiseContract c1)) (Scale obs2 (optimiseContract c2))
-optimiseContract (Or c1 c2) = Or (optimiseContract c1) (optimiseContract c2)
+optimiseContract (Or (Scale obs1 c1) (Scale obs2 c2)) d 
+  | Konst k <- obs1, Konst j <- obs2, k == j, k >= 0 = do
+      c1' <- optimiseContract c1 d
+      c2' <- optimiseContract c2 d
+      return (Scale obs1 (Or c1' c2'))
+  | otherwise = do
+      c1' <- optimiseContract c1 d
+      c2' <- optimiseContract c2 d
+      return (Or (Scale obs1 c1') (Scale obs2 c2'))
 
-optimiseContract (And c1 c2)  
-    | c1 == None = optimiseContract c2  -- Remove unnecessary None
-    | c2 == None = optimiseContract c1
-    | otherwise  = And (optimiseContract c1) (optimiseContract c2)
+optimiseContract (Or c1 c2) d = do
+  c1' <- optimiseContract c1 d
+  c2' <- optimiseContract c2 d
+  return (Or c1' c2')
 
--- Nested acquire on:
-optimiseContract (AcquireOn d1 (AcquireOn d2 c))  
-    | d1 <= d2   = AcquireOn d1 (optimiseContract c)
-    | otherwise = AcquireOn d1 (optimiseContract (AcquireOn d2 c))
-optimiseContract (AcquireOn d c) = AcquireOn d (optimiseContract c)
+optimiseContract (And c1 c2) d
+  | c1 == None = optimiseContract c2 d
+  | c2 == None = optimiseContract c1 d
+  | otherwise  = do
+      c1' <- optimiseContract c1 d
+      c2' <- optimiseContract c2 d
+      return (And c1' c2')
 
-optimiseContract (AcquireOnBefore d c) = AcquireOnBefore d (optimiseContract c)
+-- Nested AcquireOn
+optimiseContract (AcquireOn d2 (AcquireOn d3 c)) d1
+  | (d1 /= infiniteHorizon && d1 > d2) || d2 > d3 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
+  | otherwise = do
+      c' <- optimiseContract c d2
+      return (AcquireOn d2 c')
 
-optimiseContract (Scale obs c) = Scale obs (optimiseContract c)
+optimiseContract (AcquireOn d2 c) d1
+  | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
+  | otherwise = do
+      c' <- optimiseContract c d2
+      return (AcquireOn d2 c')
+
+optimiseContract (AcquireOnBefore d2 c) d1
+  | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
+  | otherwise = do
+      c' <- optimiseContract c d2
+      return (AcquireOnBefore d2 c')
+
+optimiseContract (Scale obs c) d = do
+  c' <- optimiseContract c d
+  return (Scale obs c')
 
 -- Base cases: None, One, etc., are already in simplest form
-optimiseContract contract = contract
+optimiseContract None d 
+      | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
+      | otherwise            = return None
+
+optimiseContract (One cur) d 
+      | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
+      | otherwise            = return (One cur)
 
 
 ----------------------------- Evaluation -----------------------------
@@ -45,8 +81,9 @@ type EvalM a = ExceptT String (State Cache) a
 type Cache = Map.Map Contract (PR Double)
 
 eval_contract :: Model -> Contract -> Date -> Either String (PR Double)
-eval_contract model contract date =
-  evalState (runExceptT (eval_contract_cache model (optimiseContract contract) date)) Map.empty
+eval_contract model contract date = case optimiseContract contract date of
+    Left err -> Left err
+    Right optimisedContract -> evalState (runExceptT (eval_contract_cache model optimisedContract date)) Map.empty
 
 eval_contract_cache :: Model -> Contract -> Date -> EvalM (PR Double)
 eval_contract_cache model@(Model startDate stepSize constPr discount snell exchange _) contract date = do
