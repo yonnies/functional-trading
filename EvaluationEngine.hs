@@ -7,87 +7,89 @@ import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 
-------------------------- Optimisation layer -------------------------
+
+------------------------- Type-checker -------------------------
 
 type Error = String
 
-optimiseContract :: Contract -> Date -> Either Error Contract 
--- Double negation: Give (Give c) = c
-optimiseContract (Give (Give c)) d = optimiseContract c d
-optimiseContract (Give c) d = do
-  c' <- optimiseContract c d
+typeCheck :: Contract -> Date -> Either Error Contract 
+typeCheck None d 
+  | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
+  | otherwise            = Right None
+typeCheck (One cur) d 
+  | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
+  | otherwise            = Right (One cur)
+typeCheck (Give c) d = do
+  c' <- typeCheck c d
   return (Give c')
-
--- Avoiding double scale computation
-optimiseContract (Or (Scale obs1 c1) (Scale obs2 c2)) d 
-  | Konst k <- obs1, Konst j <- obs2, k == j, k >= 0 = do
-      c1' <- optimiseContract c1 d
-      c2' <- optimiseContract c2 d
-      return (Scale obs1 (Or c1' c2'))
-  | otherwise = do
-      c1' <- optimiseContract c1 d
-      c2' <- optimiseContract c2 d
-      return (Or (Scale obs1 c1') (Scale obs2 c2'))
-
-optimiseContract (Or c1 c2) d = do
-  c1' <- optimiseContract c1 d
-  c2' <- optimiseContract c2 d
+typeCheck (And c1 c2) d = do
+  c1' <- typeCheck c1 d
+  c2' <- typeCheck c2 d
+  return (And c1' c2')
+typeCheck (Or c1 c2) d = do
+  c1' <- typeCheck c1 d
+  c2' <- typeCheck c2 d
   return (Or c1' c2')
-
-optimiseContract (And c1 c2) d
-  | c1 == None = optimiseContract c2 d
-  | c2 == None = optimiseContract c1 d
-  | otherwise  = do
-      c1' <- optimiseContract c1 d
-      c2' <- optimiseContract c2 d
-      return (And c1' c2')
-
--- Nested AcquireOn
-optimiseContract (AcquireOn d2 (AcquireOn d3 c)) d1
-  | (d1 /= infiniteHorizon && d1 > d2) || d2 > d3 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
-  | otherwise = do
-      c' <- optimiseContract c d2
-      return (AcquireOn d2 c')
-
-optimiseContract (AcquireOn d2 c) d1
+typeCheck (AcquireOn d2 c) d1
   | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
   | otherwise = do
-      c' <- optimiseContract c d2
+      c' <- typeCheck c d2
       return (AcquireOn d2 c')
-
-optimiseContract (AcquireOnBefore d2 c) d1
+typeCheck (AcquireOnBefore d1 c) d2
   | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
   | otherwise = do
-      c' <- optimiseContract c d2
+      c' <- typeCheck c d2
       return (AcquireOnBefore d2 c')
-
-optimiseContract (Scale obs c) d = do
-  c' <- optimiseContract c d
+typeCheck (Scale obs c) d = do
+  c' <- typeCheck c d
   return (Scale obs c')
 
+
+------------------------- Optimisation layer -------------------------
+
+optimiseContract :: Contract -> Contract
+-- Double negation: give (give c) = c
+optimiseContract (Give (Give c)) = optimiseContract c
+optimiseContract (Give c) = Give (optimiseContract c)
+
+-- Avoiding double scale computation
+optimiseContract (Or (Scale obs1 c1) (Scale obs2 c2))  
+    | Konst k <- obs1, Konst j <- obs2, k == j, k >= 0 = Scale obs1 (optimiseContract (Or c1 c2))
+    | otherwise = Or (Scale obs1 (optimiseContract c1)) (Scale obs2 (optimiseContract c2))
+optimiseContract (Or c1 c2) = Or (optimiseContract c1) (optimiseContract c2)
+
+optimiseContract (And c1 c2)  
+    | c1 == None = optimiseContract c2  -- Remove unnecessary None
+    | c2 == None = optimiseContract c1
+    | otherwise  = And (optimiseContract c1) (optimiseContract c2)
+
+-- Nested acquire on:
+optimiseContract (AcquireOn d1 (AcquireOn d2 c))  
+    | d1 <= d2   = AcquireOn d1 (optimiseContract c)
+    | otherwise = AcquireOn d1 (optimiseContract (AcquireOn d2 c))
+optimiseContract (AcquireOn d c) = AcquireOn d (optimiseContract c)
+
+optimiseContract (AcquireOnBefore d c) = AcquireOnBefore d (optimiseContract c)
+
+optimiseContract (Scale obs c) = Scale obs (optimiseContract c)
+
 -- Base cases: None, One, etc., are already in simplest form
-optimiseContract None d 
-      | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
-      | otherwise            = return None
-
-optimiseContract (One cur) d 
-      | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
-      | otherwise            = return (One cur)
-
+optimiseContract contract = contract
 
 ----------------------------- Evaluation -----------------------------
+
+type EvalM a = (State Cache) a
+type Cache = Map.Map Contract (PR Double)
 
 ----------------------------------------------------------------------------
 -- 1. Top-level eval_contract
 ----------------------------------------------------------------------------
 
-type EvalM a = (State Cache) a
-type Cache = Map.Map Contract (PR Double)
-
-eval_contract :: Model -> Contract -> Date -> Either String (PR Double)
-eval_contract model c d = case optimiseContract c d of
+eval_contract :: Model -> Contract -> Either String (PR Double)
+eval_contract model c = case typeCheck c infiniteHorizon of
     Left err -> Left err
-    Right c' -> Right (evalState (evalC model c') Map.empty)
+    Right c' -> let optimisedC = optimiseContract c' in
+                Right (evalState (evalC model optimisedC) Map.empty)
 
 ----------------------------------------------------------------------------
 -- 2. Memoized evaluation of a contract
