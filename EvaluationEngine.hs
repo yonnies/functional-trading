@@ -7,7 +7,6 @@ import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 
-
 ------------------------- Type-checker -------------------------
 
 type Error = String
@@ -35,7 +34,7 @@ typeCheck (AcquireOn d2 c) d1
   | otherwise = do
       c' <- typeCheck c d2
       return (AcquireOn d2 c')
-typeCheck (AcquireOnBefore d1 c) d2
+typeCheck (AcquireOnBefore d2 c) d1
   | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
   | otherwise = do
       c' <- typeCheck c d2

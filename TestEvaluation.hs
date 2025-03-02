@@ -62,9 +62,6 @@ exampleModelInstance = exampleModel today 30
 
 zcdb12 = acquireOn (date "01-11-2028") (scale (konst 1300) (one GBP))
 
--- take for Processes
-takePR :: Int -> PR a -> PR a
-takePR n (PR x) = PR (take n x)
 
 -- takePR 5 $ stockModel exampleModelInstance DIS
 -- Step 0: 109.12
@@ -96,15 +93,3 @@ testScalingOr2 = AcquireOn (date "01-02-2025") (Or (Scale (Konst 2) (One GBP)) (
 --     zcb (date "12 May 2005") 109.3 GBP `and`
 --     give (zcb (date "26 Apr 2003") 100 GBP)
 -- )
-
-
--- typeCheck :: Contract -> Date -> Either Error Contract 
--- typeCheck None d = constPr 0
--- typeCheck (One cur) d = exchange cur
--- typeCheck (Give c) d = negate (eval c)
--- typeCheck (And c1 c2) d = (eval c1) + (eval c2)
--- typeCheck (Or c1 c2) d = Or (typeCheck c1) (typeCheck c2)
--- typeCheck (AcquireOn d1 c) d2 = typeCheck c 
--- typeCheck (AcquireOnBefore d1 c) d2= typeCheck c
--- typeCheck (Scale obs c) d = typeCheck c
--- typeCheck _ = 
