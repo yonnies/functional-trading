@@ -93,3 +93,54 @@ testScalingOr2 = AcquireOn (date "01-02-2025") (Or (Scale (Konst 2) (One GBP)) (
 --     zcb (date "12 May 2005") 109.3 GBP `and`
 --     give (zcb (date "26 Apr 2003") 100 GBP)
 -- )
+
+
+cx = AcquireOn (date "01-02-2026") (Give (Or (Give (Give (One EUR))) None))
+
+
+cxx = AcquireOn (date "01-02-2030") (Give (And (Or (Or (One USD) (Or (One USD) None)) (AcquireOnBefore (date "01-07-2030") (Give None))) None))
+
+
+
+-- Failed:   
+-- NonNegative {getNonNegative = 0.16132386943986787}
+-- AcquireOn 2025-11-30 (Give (Or (Give (Give (One EUR))) None))
+-- AcquireOnBefore 2030-06-23 (Give (AcquireOnBefore 2030-07-05 (And (Or None None) None)))
+
+-- Failed:                                                  
+-- NonNegative {getNonNegative = 0.0}
+-- AcquireOn 2025-11-30 (Give (Or (Give (Give (One EUR))) None))
+-- AcquireOnBefore 2030-06-23 (Give (AcquireOnBefore 2030-07-05 (And (Or None None) None)))
+
+
+-- Failed:   
+-- NonNegative {getNonNegative = 92.38636363636364}
+-- AcquireOnBefore 2026-04-28 (Give (Or (Give (Scale (Konst 69.55) (Give (Scale (Konst (-55.56666666666667)) (One USD))))) (AcquireOn 2026-06-12 (AcquireOn 2030-11-25 (One USD)))))
+-- Or (Or (AcquireOnBefore 2026-03-29 (Scale (StockPrice TSLA) (Give None))) (Give (AcquireOnBefore 2030-08-12 (AcquireOnBefore 2030-12-03 (AcquireOn 2030-12-07 (One EUR)))))) (Give (AcquireOnBefore 2027-06-19 (Or (Scale (Konst (-36.53333333333333)) None) (Give None))))
+
+-- Failed:                                                  
+-- NonNegative {getNonNegative = 92.0}
+-- AcquireOnBefore 2026-04-28 (Give (Or (Give (Scale (Konst 69.55) (Give (Scale (Konst (-55.56666666666667)) (One USD))))) (AcquireOn 2026-06-12 (AcquireOn 2030-11-25 (One USD)))))
+-- Or (Or (AcquireOnBefore 2026-03-29 (Scale (StockPrice TSLA) (Give None))) (Give (AcquireOnBefore 2030-08-12 (AcquireOnBefore 2030-12-03 (AcquireOn 2030-12-07 (One EUR)))))) (Give (AcquireOnBefore 2027-06-19 (Or (Scale (Konst (-36.53333333333333)) None) (Give None))))
+
+-- Failed:                                                               
+-- NonNegative {getNonNegative = 0.0}
+-- AcquireOnBefore 2026-04-28 (Give (Or (Give (Scale (Konst 69.55) (Give (Scale (Konst (-55.56666666666667)) (One USD))))) (AcquireOn 2026-06-12 (AcquireOn 2030-11-25 (One USD)))))
+-- Or (Or (AcquireOnBefore 2026-03-29 (Scale (StockPrice TSLA) (Give None))) (Give (AcquireOnBefore 2030-08-12 (AcquireOnBefore 2030-12-03 (AcquireOn 2030-12-07 (One EUR)))))) (Give (AcquireOnBefore 2027-06-19 (Or (Scale (Konst (-36.53333333333333)) None) (Give None))))
+
+
+-- Failed:   
+-- NonNegative {getNonNegative = 7.0}
+-- AcquireOn 2030-08-09 (Give (And (Or (Or (One USD) (Or (One USD) None)) (AcquireOnBefore 2030-11-07 (Give None))) None))
+-- Scale (Konst (-49.0)) (AcquireOn 2029-01-03 (AcquireOn 2029-09-14 (Give (Or (Or (One GBP) (One EUR)) (Or (One GBP) (One EUR))))))
+
+-- Failed:                                                  
+-- NonNegative {getNonNegative = 0.0}
+-- AcquireOn 2030-08-09 (Give (And (Or (Or (One USD) (Or (One USD) None)) (AcquireOnBefore 2030-11-07 (Give None))) None))
+-- Scale (Konst (-49.0)) (AcquireOn 2029-01-03 (AcquireOn 2029-09-14 (Give (Or (Or (One GBP) (One EUR)) (Or (One GBP) (One EUR))))))
+
+-- *** Failed! Timeout of 1000000 microseconds exceeded. (after 68 tests and 1 shrink):
+-- NonNegative {getNonNegative = 0.0}
+-- AcquireOn 2030-08-09 (Give (And (Or (Or (One USD) (Or (One USD) None)) (AcquireOnBefore 2030-11-07 (Give None))) None))
+-- Scale (Konst (-49.0)) (AcquireOn 2029-01-03 (AcquireOn 2029-09-14 (Give (Or (Or (One GBP) (One EUR)) (Or (One GBP) (One EUR))))))
+-- ghci> 

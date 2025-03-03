@@ -152,3 +152,8 @@ exampleModel startDate stepSize = Model {
             where
                 up x = x + vol * sqrt time
                 down x = x - vol * sqrt time
+
+
+
+maximumValToday :: PR Double -> PR Double -> PR Double
+maximumValToday (PR (xs:xss)) (PR (ys:yss)) = if xs !! 0 > ys !! 0 then PR (xs:xss) else PR (ys:yss)

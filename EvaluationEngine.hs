@@ -49,13 +49,17 @@ typeCheck (Scale obs c) d = do
 optimiseContract :: Contract -> Contract
 -- Double negation: give (give c) = c
 optimiseContract (Give (Give c)) = optimiseContract c
-optimiseContract (Give c) = Give (optimiseContract c)
+optimiseContract (Give c)
+    | c == None = optimiseContract c
+    | otherwise = Give (optimiseContract c)
 
 -- Avoiding double scale computation
 optimiseContract (Or (Scale obs1 c1) (Scale obs2 c2))  
     | Konst k <- obs1, Konst j <- obs2, k == j, k >= 0 = Scale obs1 (optimiseContract (Or c1 c2))
     | otherwise = Or (Scale obs1 (optimiseContract c1)) (Scale obs2 (optimiseContract c2))
-optimiseContract (Or c1 c2) = Or (optimiseContract c1) (optimiseContract c2)
+optimiseContract (Or c1 c2) 
+    | c1 == c2 = c1
+    | otherwise = Or (optimiseContract c1) (optimiseContract c2)
 
 optimiseContract (And c1 c2)  
     | c1 == None = optimiseContract c2  -- Remove unnecessary None
@@ -121,14 +125,14 @@ evalC model@(Model _ _ constPr discount snell exchange _) contract = do
       return (negate cVal)
 
     eval (And c1 c2) = do
-      v1 <- evalC model c1
-      v2 <- evalC model c2
-      return (v1 + v2)
+      pr1 <- evalC model c1
+      pr2 <- evalC model c2
+      return (pr1 + pr2)
 
     eval (Or c1 c2) = do
-      v1 <- evalC model c1
-      v2 <- evalC model c2
-      return (max v1 v2)
+      pr1 <- evalC model c1
+      pr2 <- evalC model c2
+      return (maximumValToday pr1 pr2)
 
     eval (AcquireOn d c) = do
       cVal <- evalC model c
