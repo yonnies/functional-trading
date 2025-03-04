@@ -40,7 +40,7 @@ american :: Date -> Contract -> Double -> Contract
 american t underlying strikePrice = AcquireOnBefore t (underlying `And` give (scale (konst strikePrice) (one GBP))) `Or` AcquireOnBefore t none 
 
 american1 :: Contract
-american1 = american (date "01-02-2025") (Scale (StockPrice DIS) (One GBP)) 100 
+american1 = american (date "01-03-2025") (Scale (StockPrice DIS) (One GBP)) 100 
 
 american2 :: Contract
 american2 = american (date "05-02-2025") (Scale (StockPrice DIS) (One GBP)) 120 -- Too expesive

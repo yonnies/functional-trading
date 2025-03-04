@@ -31,8 +31,8 @@ instance Num a => Num (PR a) where
 instance Eq a => Eq (PR a) where
   (PR pr1) == (PR pr2) = pr1 == pr2
 
-instance Ord a => Ord (PR a) where
-  (PR pr1) <= (PR pr2) = pr1 <= pr2
+instance Ord a => Ord (PR a) where  
+    (PR pr1) <= (PR pr2) = pr1 <= pr2
 
 lift :: (a -> b) -> PR a -> PR b
 lift f (PR xss) = PR [[f x | x <- xs] | xs <- xss]
@@ -113,25 +113,35 @@ exampleModel startDate stepSize = Model {
         interest_rates = _HLIRModel 0.05 0.01 (stepSizeD / 365)
 
         discount :: Date -> PR Double -> PR Double
-        discount d (PR pr) = PR (reverse (discount' lattice_depth (pr !! lattice_depth)))
+        discount d (PR pr) = PR (discount' 1)
             where
-                lattice_depth = ((daysBetween startDate d) `div` stepSize) 
+                lattice_depth = ((daysBetween startDate d) `div` stepSize)
 
-                discount' :: TimeStep -> ValSlice Double -> [ValSlice Double]
-                discount' (-1) _ = []
-                discount' t prevSlice = prevSlice : discount' (t - 1) (discountedSlice t prevSlice)
+                discount' :: TimeStep -> [ValSlice Double]
+                discount' t 
+                    | t == lattice_depth + 1 = [pr !! lattice_depth]       
+                    | otherwise = curSlice : restSlices 
+                        where 
+                            restSlices@(nextSlice:_) = discount' (t + 1) 
+                            curSlice = (discountSlice (t+1) nextSlice)
+
     
         snell :: Date -> PR Double -> PR Double
-        snell d (PR pr) = PR (reverse (snell' lattice_depth pr (pr !! lattice_depth)))
+        snell d (PR pr) = PR (snell' 1)
             where 
                 lattice_depth = ((daysBetween startDate d) `div` stepSize)  
 
-                snell' :: TimeStep -> [ValSlice Double] -> ValSlice Double -> [ValSlice Double]
-                snell' (-1) _ _ = []
-                snell' t immediateVals prevSlice = prevSlice : snell' (t - 1) immediateVals (max (discountedSlice t prevSlice) (immediateVals !! (t-1)))
+                snell' :: TimeStep -> [ValSlice Double]
+                snell' t 
+                    | t == lattice_depth + 1 = [pr !! lattice_depth]
+                    | otherwise = curSlice : restSlices 
+                        where 
+                            restSlices@(nextSlice:_) = snell' (t + 1) 
+                            curSlice = max (discountSlice (t+1) nextSlice) (pr !! (t-1))
 
-        discountedSlice :: TimeStep -> ValSlice Double -> ValSlice Double
-        discountedSlice t prevSlice =  
+
+        discountSlice :: TimeStep -> ValSlice Double -> ValSlice Double
+        discountSlice t prevSlice =  
             [(prev_val1 + prev_val2) / (2 * (1 + ir)) | (ir, (prev_val1, prev_val2)) <- zip irs pairs]
                 where   pairs = zip (tail prevSlice) (init prevSlice)
                         irs = interest_rates !! (t - 1)         
