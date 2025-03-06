@@ -61,7 +61,7 @@ deriving instance Show a => Show (Obs a)
 deriving instance Eq a => Eq (Obs a)
 deriving instance Ord a => Ord (Obs a)
 
-instance Num a => Num (Obs a) where
+instance Num (Obs Double) where
   fromInteger = Konst . fromInteger
   o1 + o2 = Lift2D BAdd o1 o2
   o1 * o2 = Lift2D BMul o1 o2
