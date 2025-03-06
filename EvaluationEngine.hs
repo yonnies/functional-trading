@@ -15,8 +15,6 @@ import qualified Data.Map.Strict as Map
 
 ------------------------- Type-checker -------------------------
 
-type Error = String
-
 typeCheck :: Contract -> Date -> Either Error Contract 
 typeCheck None d 
   | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
@@ -109,9 +107,10 @@ data EvalState = EvalState
   { cache :: Cache
   }
 
-type EvalM a = State EvalState a
+-- The monad: we carry our cache (EvalState) in StateT,
+-- and can fail with String errors using Either String
+type EvalM a = StateT EvalState (Either String) a
 
--- Initially empty
 emptyEvalState :: EvalState
 emptyEvalState = EvalState { cache = Map.empty }
 
@@ -119,28 +118,28 @@ emptyEvalState = EvalState { cache = Map.empty }
 -- Top-level evaluation
 ---------------------------------------
 eval_contract :: Model -> Contract -> Either String (PR Double)
-eval_contract model c = case typeCheck c infiniteHorizon of
-  Left err -> Left err
-  Right c' ->
-    let optC = optimiseContract c'
-    in Right (evalState (evalC model optC) emptyEvalState)
+eval_contract model c = do
+  -- If typeCheck fails, we short-circuit with a Left.
+  c' <- typeCheck c infiniteHorizon
+  let optC = optimiseContract c'
+  -- Run our StateT-based evaluator with an empty cache:
+  (result, _finalState) <- runStateT (evalC model optC) emptyEvalState
+  return result
 
 ----------------------------------------------------------------------------
 -- Memoized evaluation of a contract
 ----------------------------------------------------------------------------
 
 evalC :: Model -> Contract -> EvalM (PR Double)
-evalC model@(Model _ _ constPr discount discObs snell exchange _ _) contract = do
+evalC model@(Model _ _ constPr discDate discObs snell exchange _ _) contract = do
   st <- get
-  -- Look up in the unified map using KContract
   case Map.lookup (KContract contract) (cache st) of
     Just (VDouble cachedPR) -> return cachedPR
-    -- If found something but it's VBool, that's a mismatch
-    Just (VBool _)          -> error "Contract was stored with VBool, logic bug!"
+    Just (VBool _)          -> throwError "Contract was stored with VBool, logic bug!"
     Nothing -> do
-      -- Not in cache => actually evaluate
+      -- Not in cache
       result <- eval contract
-      -- Insert the result as VDouble
+      -- Insert the result
       let newMap = Map.insert (KContract contract) (VDouble result) (cache st)
       put st { cache = newMap }
       return result
@@ -171,7 +170,8 @@ evalC model@(Model _ _ constPr discount discObs snell exchange _ _) contract = d
 
     eval (AcquireOn d c) = do
       cVal <- evalC model c
-      return (discount d cVal)
+      pr <- liftEither (discDate d cVal)
+      return pr
 
     eval (AcquireOnBefore d c) = do
       cVal <- evalC model c
@@ -180,7 +180,8 @@ evalC model@(Model _ _ constPr discount discObs snell exchange _ _) contract = d
     eval (AcquireWhen obs c) = do
       obsPR <- evalBO model obs
       cVal <- evalC model c
-      return (discObs obsPR cVal)
+      pr <- liftEither (discObs obsPR cVal)
+      return pr
 
     eval (Scale obs c) = do
       obsPR <- evalDO model obs
@@ -196,7 +197,7 @@ evalDO model@(Model _ _ constPr _ _ _ _ stockModel _) obsD = do
   st <- get
   case Map.lookup (KObsDouble obsD) (cache st) of
     Just (VDouble prD) -> return prD
-    Just (VBool _)     -> error "Obs Double is stored as VBool, logic error!"
+    Just (VBool _)     -> throwError "Obs Double is stored as VBool, logic error!"
     Nothing -> do
       pr <- eval obsD
       let newMap = Map.insert (KObsDouble obsD) (VDouble pr) (cache st)
@@ -220,7 +221,7 @@ evalBO model@(Model _ _ _ _ _ _ _ _ datePr) obsB = do
   st <- get
   case Map.lookup (KObsBool obsB) (cache st) of
     Just (VBool prB) -> return prB
-    Just (VDouble _) -> error "Obs Bool stored as VDouble, logic error!"
+    Just (VDouble _) -> throwError "Obs Bool stored as VDouble, logic error!"
     Nothing -> do
       pr <- eval obsB
       let newMap = Map.insert (KObsBool obsB) (VBool pr) (cache st)

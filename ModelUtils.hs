@@ -64,8 +64,8 @@ data Model = Model {
     startDate       :: Date,
     stepSize        :: StepSize,
     constPr         :: Double -> PR Double,
-    discount        :: Date -> PR Double -> PR Double,
-    discObs         :: PR Bool -> PR Double -> PR Double,
+    discDate        :: Date -> PR Double -> Either Error (PR Double),
+    discObs         :: PR Bool -> PR Double -> Either Error (PR Double),
     snell           :: Date -> PR Double -> PR Double,
     exchange        :: Currency -> PR Double,
     stockModel      :: Stock -> PR Double,
@@ -73,13 +73,14 @@ data Model = Model {
     -- dfltPr          :: Date -> PR Bool
     }
 
+type Error = String
 
 exampleModel :: Date -> StepSize -> Model
 exampleModel startDate stepSize = Model {
     startDate = startDate,
     stepSize = stepSize,
     constPr = constPr,
-    discount = discDate,
+    discDate = discDate,
     discObs = discObs,
     snell = snell,
     exchange = exchange,
@@ -131,7 +132,7 @@ exampleModel startDate stepSize = Model {
                     Nothing -> error $ "Stock model for stock " ++ (show stk) ++ " not found"
 
             where
-                -- volatility is monthly
+                -- Volatility is monthly
                 stockPrices :: [(Stock, PR Double)]
                 stockPrices =   
                     [ (DIS, stockModel 109.12 0.2253 (stepSizeD / 30)) 
@@ -146,11 +147,12 @@ exampleModel startDate stepSize = Model {
         interest_rates :: LatticeModel Double
         interest_rates = _HLIRModel 0.05 0.01 (stepSizeD / 365)
 
-        discount :: (PR Double -> Int) -> PR Double -> PR Double
-        discount getLatticeDepth (PR pr) = PR (discount' 1)
+        discount :: Int -> PR Double -> Either Error (PR Double)
+        discount lattice_depth (PR pr)
+            | lattice_depth < 1 = Left "Contract acquisition has been specified to an earlier date than model start date"
+            | lattice_depth >= length pr = Left "Lattice depth exceeds PR slices in discount"
+            | otherwise = Right $ PR (discount' 1)
             where
-                lattice_depth = getLatticeDepth (PR pr)
-
                 discount' :: TimeStep -> [ValSlice Double]
                 discount' t 
                     | t == lattice_depth + 1 = [pr !! lattice_depth]       
@@ -159,11 +161,11 @@ exampleModel startDate stepSize = Model {
                             restSlices@(nextSlice:_) = discount' (t + 1) 
                             curSlice = (discountSlice (t+1) nextSlice)
 
-        discObs :: PR Bool -> PR Double -> PR Double
-        discObs (PR bpr) = discount (\_ -> findHorizon bpr 0)
+        discObs :: PR Bool -> PR Double -> Either Error (PR Double)
+        discObs (PR bpr) = discount (findHorizon bpr 0)
 
-        discDate :: Date -> PR Double -> PR Double
-        discDate d = discount (\_ -> (daysBetween startDate d) `div` stepSize)
+        discDate :: Date -> PR Double -> Either Error (PR Double)
+        discDate d = discount ((daysBetween startDate d) `div` stepSize)
 
         -- Keeping findHorizon as is
         findHorizon :: [ValSlice Bool] -> Int -> Int
