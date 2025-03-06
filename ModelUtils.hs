@@ -10,14 +10,23 @@ type LatticeModel a = [[a]]
 type ValSlice a = [a]
 newtype PR a = PR ([ValSlice a])
 
-instance (Show a, RealFrac a) => Show (PR a) where
+instance (Show a) => Show (PR a) where
     show (PR layers) = unlines $ zipWith formatLayer [0..] layers
       where
         formatLayer :: Int -> ValSlice a -> String
-        formatLayer n vals = "Step " ++ show n ++ ": " ++ unwords (map showRounded vals)
+        formatLayer n vals = "Step " ++ show n ++ ": " ++ unwords (map showVal vals)
 
-        showRounded :: (RealFrac a, Show a) => a -> String
-        showRounded x = show (fromIntegral (round (x * 100)) / 100)
+        showVal :: (Show a) => a -> String
+        showVal x =
+            case castToDouble x of
+                Just (y :: Double) -> show (fromIntegral (round (y * 100)) / 100)  -- Round numbers
+                Nothing -> show x  -- Print non-numeric types normally
+
+        -- Function to safely cast numbers to Double, returns Nothing for non-numeric types
+        castToDouble :: forall b. (Show b) => b -> Maybe Double
+        castToDouble v = case reads (show v) :: [(Double, String)] of
+                            [(num, "")] -> Just num
+                            _ -> Nothing
 
 instance Num a => Num (PR a) where
     (+) = lift2 (+)
@@ -29,7 +38,7 @@ instance Num a => Num (PR a) where
     negate = lift negate
 
 instance Eq a => Eq (PR a) where
-  (PR pr1) == (PR pr2) = pr1 == pr2
+    (PR pr1) == (PR pr2) = pr1 == pr2
 
 instance Ord a => Ord (PR a) where  
     (PR pr1) <= (PR pr2) = pr1 <= pr2
@@ -51,9 +60,12 @@ data Model = Model {
     stepSize        :: StepSize,
     constPr         :: Double -> PR Double,
     discount        :: Date -> PR Double -> PR Double,
+    discObs         :: PR Bool -> PR Double -> PR Double,
     snell           :: Date -> PR Double -> PR Double,
     exchange        :: Currency -> PR Double,
-    stockModel      :: Stock -> PR Double
+    stockModel      :: Stock -> PR Double,
+    datePr          :: Date -> PR Bool
+    -- dfltPr          :: Date -> PR Bool
     }
 
 
@@ -62,15 +74,32 @@ exampleModel startDate stepSize = Model {
     startDate = startDate,
     stepSize = stepSize,
     constPr = constPr,
-    discount = discount,
+    discount = discDate,
+    discObs = discObs,
     snell = snell,
     exchange = exchange,
-    stockModel = stockModel
+    stockModel = stockModel,
+    datePr = datePr
+    -- dfltPr = dfltPr
     }
 
     where
-        constPr :: Double -> PR Double
-        constPr val = PR (initLatticeModel [val] (\x -> x) (\x -> x))
+        constPr :: a -> PR a
+        constPr val = PR (constSlice 1 val)
+
+        constSlice :: Int -> a -> [ValSlice a]
+        constSlice n x = replicate n x : constSlice (n+1) x
+
+        datePr :: Date -> PR Bool
+        datePr d = PR (datePr' 1)
+            where 
+                date_loc = ((daysBetween startDate d) `div` stepSize) + 1
+
+                datePr' :: Int -> [ValSlice Bool]
+                datePr' n 
+                    | n == date_loc = replicate n True : datePr' (n+1)
+                    | otherwise = replicate n False : datePr' (n+1)
+
 
         -- for simplicity base currency is GBP
         exchange :: Currency -> PR Double
@@ -112,10 +141,10 @@ exampleModel startDate stepSize = Model {
         interest_rates :: LatticeModel Double
         interest_rates = _HLIRModel 0.05 0.01 (stepSizeD / 365)
 
-        discount :: Date -> PR Double -> PR Double
-        discount d (PR pr) = PR (discount' 1)
+        discount :: (PR Double -> Int) -> PR Double -> PR Double
+        discount getLatticeDepth (PR pr) = PR (discount' 1)
             where
-                lattice_depth = ((daysBetween startDate d) `div` stepSize)
+                lattice_depth = getLatticeDepth (PR pr)
 
                 discount' :: TimeStep -> [ValSlice Double]
                 discount' t 
@@ -124,6 +153,19 @@ exampleModel startDate stepSize = Model {
                         where 
                             restSlices@(nextSlice:_) = discount' (t + 1) 
                             curSlice = (discountSlice (t+1) nextSlice)
+
+        discObs :: PR Bool -> PR Double -> PR Double
+        discObs (PR bpr) = discount (\_ -> findHorizon bpr 0)
+
+        discDate :: Date -> PR Double -> PR Double
+        discDate d = discount (\_ -> (daysBetween startDate d) `div` stepSize)
+
+        -- Keeping findHorizon as is
+        findHorizon :: [ValSlice Bool] -> Int -> Int
+        findHorizon [] _ = -1 
+        findHorizon (bvs:bvss) n
+            | and bvs = n
+            | otherwise = findHorizon bvss (n+1)
 
     
         snell :: Date -> PR Double -> PR Double

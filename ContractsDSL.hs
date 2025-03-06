@@ -1,3 +1,9 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module ContractsDSL where 
 
 import Data.Time (Day, parseTimeM, defaultTimeLocale, diffDays)
@@ -43,11 +49,14 @@ data Contract
 ----------------------------- Observables -----------------------------
 
 data Obs a where
-    Konst :: a -> Obs a             -- Observable whose value remains unchanged at any point in time
-    StockPrice :: Stock -> Obs a    -- Observable that represents price of a stock in different points of time
-    DateO :: Date -> Obs a
-    deriving (Show, Eq, Ord)
+    Konst :: Double -> Obs Double             -- Observable whose value remains unchanged at any point in time
+    StockPrice :: Stock -> Obs Double    -- Observable that represents price of a stock in different points of time
+    DateO :: Date -> Obs Bool
     
+deriving instance Show a => Show (Obs a)
+deriving instance Eq a => Eq (Obs a)
+deriving instance Ord a => Ord (Obs a)
+
 ----------------------------------------------------
 -- Lower case notation to prevent typo bugs 
 
@@ -71,3 +80,7 @@ data Currency = GBP | USD | EUR
                               
 data Stock = DIS | TSLA | NVDA
     deriving (Eq, Show, Ord)
+
+
+
+

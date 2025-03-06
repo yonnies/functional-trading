@@ -1,3 +1,9 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 module EvaluationEngine where
 
 import ContractsDSL
@@ -42,6 +48,7 @@ typeCheck (AcquireOnBefore d2 c) d1
 typeCheck (Scale obs c) d = do
   c' <- typeCheck c d
   return (Scale obs c')
+typeCheck x d = return x
 
 
 ------------------------- Optimisation layer -------------------------
@@ -99,7 +106,7 @@ eval_contract model c = case typeCheck c infiniteHorizon of
 ----------------------------------------------------------------------------
 
 evalC :: Model -> Contract -> EvalM (PR Double)
-evalC model@(Model _ _ constPr discount snell exchange _) contract = do
+evalC model@(Model _ _ constPr discount discObs snell exchange _ _) contract = do
   cache <- get
   case Map.lookup contract cache of
     -- If this contract is already in the cache, just return it:
@@ -142,30 +149,38 @@ evalC model@(Model _ _ constPr discount snell exchange _) contract = do
       cVal <- evalC model c
       return (snell d cVal)
 
+    eval (When obs c) = do
+      obsPR <- evalO model obs
+      cVal <- evalC model c
+      return (discObs obsPR cVal)
+
     eval (Scale obs c) = do
-      obsVal <- evalO model obs
+      obsPR <- evalO model obs
       cVal   <- evalC model c
-      return (obsVal * cVal)
+      return (obsPR * cVal)
 
 ----------------------------------------------------------------------------
 -- 3. Evaluating an observation with memoization
 ----------------------------------------------------------------------------
 
-evalO :: Model -> Obs Double -> EvalM (PR Double)
-evalO model@(Model _ _ constPr _ _ _ stockModel) obs = do
-  -- We reuse the same contract->PR cache, so we need a "fake" contract
-  -- that represents “Scale obs (one GBP)” as a key.  This is a bit hacky but works
-  -- because it would give correct result even if there is a colision.
-  let key = Scale obs (one GBP)
+evalO :: Model -> Obs a -> EvalM (PR a)
+evalO model@(Model _ _ constPr _ _ _ _ stockModel datePr) obs = eval obs
+  where
+  -- do
+  -- -- We reuse the same contract->PR cache, so we need a "fake" contract
+  -- -- that represents “Scale obs (one GBP)” as a key.  This is a bit hacky but works
+  -- -- because it would give correct result even if there is a colision.
+  -- let key = Scale obs (one GBP)
 
-  cache <- get
-  case Map.lookup key cache of
-    Just result -> return result
-    Nothing -> do
-      result <- eval obs
-      modify (Map.insert key result)
-      return result
-      where 
-        eval :: Obs Double -> EvalM (PR Double)
-        eval (Konst k) = return (constPr k)
+  -- cache <- get
+  -- case Map.lookup key cache of
+  --   Just result -> return result
+  --   Nothing -> do
+  --     result <- eval obs
+  --     modify (Map.insert key result)
+  --     return result
+  --     where 
+        eval :: Obs a -> EvalM (PR a)
+        eval (Konst k) = return (constPr (realToFrac k))
         eval (StockPrice stk) = return (stockModel stk)
+        eval (DateO d) = return (datePr d)

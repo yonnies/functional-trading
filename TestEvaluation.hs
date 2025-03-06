@@ -58,6 +58,9 @@ invalidAcquire = acquireOn (date "01-01-2026") (acquireOn (date "01-01-2025") ((
 unwrapPR :: PR a -> [ValSlice a]
 unwrapPR (PR x) = x
 
+takePR :: Int -> PR a -> [ValSlice a]
+takePR n (PR x) = take n x
+
 exampleModelInstance = exampleModel today 30
 
 zcdb12 = acquireOn (date "01-11-2028") (scale (konst 1300) (one GBP))
@@ -95,10 +98,10 @@ testScalingOr2 = AcquireOn (date "01-02-2025") (Or (Scale (Konst 2) (One GBP)) (
 -- )
 
 
-cx = AcquireOn (date "01-02-2026") (Give (Or (Give (Give (One EUR))) None))
+c1 = AcquireOn (date "01-02-2026") (Give (Or (Give (Give (One EUR))) None))
 
 
-cxx = AcquireOn (date "01-02-2030") (Give (And (Or (Or (One USD) (Or (One USD) None)) (AcquireOnBefore (date "01-07-2030") (Give None))) None))
+c2 = AcquireOn (date "01-02-2030") (Give (And (Or (Or (One USD) (Or (One USD) None)) (AcquireOnBefore (date "01-07-2030") (Give None))) None))
 
 
 
@@ -144,3 +147,14 @@ cxx = AcquireOn (date "01-02-2030") (Give (And (Or (Or (One USD) (Or (One USD) N
 -- AcquireOn 2030-08-09 (Give (And (Or (Or (One USD) (Or (One USD) None)) (AcquireOnBefore 2030-11-07 (Give None))) None))
 -- Scale (Konst (-49.0)) (AcquireOn 2029-01-03 (AcquireOn 2029-09-14 (Give (Or (Or (One GBP) (One EUR)) (Or (One GBP) (One EUR))))))
 -- ghci> 
+
+
+-- test = datePr exampleModelInstance (date "01-02-2025")
+
+
+c3 = when (dateO (date "01-03-2025")) ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 100) (one GBP))) `Or` when (dateO (date "01-03-2025")) none 
+
+
+-- european1 :: Contract
+-- european1 = european (date "01-03-2025") (Scale (StockPrice DIS) (One GBP)) 100 
+-- -- Should return the underlying 
