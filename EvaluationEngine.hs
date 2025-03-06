@@ -166,21 +166,14 @@ evalC model@(Model _ _ constPr discount discObs snell exchange _ _) contract = d
 evalO :: Model -> Obs a -> EvalM (PR a)
 evalO model@(Model _ _ constPr _ _ _ _ stockModel datePr) obs = eval obs
   where
-  -- do
-  -- -- We reuse the same contract->PR cache, so we need a "fake" contract
-  -- -- that represents “Scale obs (one GBP)” as a key.  This is a bit hacky but works
-  -- -- because it would give correct result even if there is a colision.
-  -- let key = Scale obs (one GBP)
-
-  -- cache <- get
-  -- case Map.lookup key cache of
-  --   Just result -> return result
-  --   Nothing -> do
-  --     result <- eval obs
-  --     modify (Map.insert key result)
-  --     return result
-  --     where 
         eval :: Obs a -> EvalM (PR a)
         eval (Konst k) = return (constPr (realToFrac k))
         eval (StockPrice stk) = return (stockModel stk)
         eval (DateO d) = return (datePr d)
+        eval (LiftD op o) = do
+          po <- evalO model o
+          return (ModelUtils.lift (unaryOpMap op) po)
+        eval (Lift2D op o1 o2) = do
+          po1 <- evalO model o1
+          po2 <- evalO model o2
+          return (ModelUtils.lift2 (binaryOpMap op) po1 po2)

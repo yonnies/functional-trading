@@ -52,10 +52,56 @@ data Obs a where
     Konst :: Double -> Obs Double             -- Observable whose value remains unchanged at any point in time
     StockPrice :: Stock -> Obs Double    -- Observable that represents price of a stock in different points of time
     DateO :: Date -> Obs Bool
+    LiftD :: UnaryOp -> Obs Double -> Obs Double
+    Lift2D :: BinaryOp -> Obs Double -> Obs Double -> Obs Double
+    -- LiftB :: (Bool -> Bool) -> Obs Bool -> Obs Bool
+    -- Lift2B ::(Bool -> Bool -> Bool) -> Obs Bool -> Obs Bool -> Obs Bool
     
 deriving instance Show a => Show (Obs a)
 deriving instance Eq a => Eq (Obs a)
 deriving instance Ord a => Ord (Obs a)
+
+instance Num a => Num (Obs a) where
+  fromInteger = Konst . fromInteger
+  o1 + o2 = Lift2D BAdd o1 o2
+  o1 * o2 = Lift2D BMul o1 o2
+  o1 - o2 = Lift2D BSub o1 o2
+  negate o = LiftD UNegate o
+  abs o  = LiftD UAbs o
+  signum o  = LiftD USignum o
+
+instance Fractional (Obs Double) where
+  o1 / o2 = Lift2D BDiv o1 o2
+  recip = error "recip not implemented for Obs Double"
+  fromRational = error "fromRational not implemented for Obs Double"
+
+
+-- | Unary numeric operators
+data UnaryOp
+  = UNegate      -- Negate
+  | UAbs         -- Absolute value
+  | USignum      -- Signum
+  deriving (Eq, Show, Ord)
+
+-- | Binary numeric operators
+data BinaryOp
+  = BAdd
+  | BSub
+  | BMul
+  | BDiv      
+  deriving (Eq, Show, Ord)
+
+
+unaryOpMap :: UnaryOp -> (Double -> Double)
+unaryOpMap UNegate = negate
+unaryOpMap UAbs    = abs
+unaryOpMap USignum = signum
+
+binaryOpMap :: BinaryOp -> (Double -> Double -> Double)
+binaryOpMap BAdd = (+)
+binaryOpMap BSub = (-)
+binaryOpMap BMul = (*)
+binaryOpMap BDiv = (/)
 
 ----------------------------------------------------
 -- Lower case notation to prevent typo bugs 

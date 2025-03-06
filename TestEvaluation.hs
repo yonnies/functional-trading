@@ -158,3 +158,10 @@ c3 = when (dateO (date "01-03-2025")) ((Scale (StockPrice DIS) (One GBP)) `And` 
 -- european1 :: Contract
 -- european1 = european (date "01-03-2025") (Scale (StockPrice DIS) (One GBP)) 100 
 -- -- Should return the underlying 
+
+
+c4 = acquireOn (date "01-11-2028") (scale (konst 1300 + konst 400) (one GBP))
+
+
+c5 = AcquireOn (date "01-03-2025") ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 80 + konst 20) (one GBP)))
+

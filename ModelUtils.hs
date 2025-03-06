@@ -37,6 +37,11 @@ instance Num a => Num (PR a) where
     fromInteger n = PR (initLatticeModel [fromInteger n] (\x -> x) (\x -> x))
     negate = lift negate
 
+instance (Num a, Fractional a) => Fractional (PR a) where
+  (/) = lift2 (/) 
+  recip = error "recip not implemented for processes"
+  fromRational = error "fromRational not implemented for processes"
+
 instance Eq a => Eq (PR a) where
     (PR pr1) == (PR pr2) = pr1 == pr2
 
