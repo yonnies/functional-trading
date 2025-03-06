@@ -152,7 +152,7 @@ c2 = AcquireOn (date "01-02-2030") (Give (And (Or (Or (One USD) (Or (One USD) No
 -- test = datePr exampleModelInstance (date "01-02-2025")
 
 
-c3 = when (dateO (date "01-03-2025")) ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 100) (one GBP))) `Or` when (dateO (date "01-03-2025")) none 
+c3 = AcquireWhen (dateO (date "01-03-2025")) ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 100) (one GBP))) `Or` AcquireWhen (dateO (date "01-03-2025")) none 
 
 
 -- european1 :: Contract

@@ -88,37 +88,65 @@ optimiseContract contract = contract
 
 ----------------------------- Evaluation -----------------------------
 
-type EvalM a = (State Cache) a
-type Cache = Map.Map Contract (PR Double)
+---------------------------------------
+-- Cache
+---------------------------------------
+data Key
+  = KContract Contract
+  | KObsDouble (Obs Double)
+  | KObsBool   (Obs Bool)
+  deriving (Eq, Ord, Show)
 
-----------------------------------------------------------------------------
--- 1. Top-level eval_contract
-----------------------------------------------------------------------------
+data Val
+  = VDouble (PR Double)
+  | VBool   (PR Bool)
+  deriving (Show)
 
+type Cache = Map.Map Key Val
+
+-- We'll keep an EvalState with that single cache
+data EvalState = EvalState
+  { cache :: Cache
+  }
+
+type EvalM a = State EvalState a
+
+-- Initially empty
+emptyEvalState :: EvalState
+emptyEvalState = EvalState { cache = Map.empty }
+
+---------------------------------------
+-- Top-level evaluation
+---------------------------------------
 eval_contract :: Model -> Contract -> Either String (PR Double)
 eval_contract model c = case typeCheck c infiniteHorizon of
-    Left err -> Left err
-    Right c' -> let optimisedC = optimiseContract c' in
-                Right (evalState (evalC model optimisedC) Map.empty)
+  Left err -> Left err
+  Right c' ->
+    let optC = optimiseContract c'
+    in Right (evalState (evalC model optC) emptyEvalState)
 
 ----------------------------------------------------------------------------
--- 2. Memoized evaluation of a contract
+-- Memoized evaluation of a contract
 ----------------------------------------------------------------------------
 
 evalC :: Model -> Contract -> EvalM (PR Double)
 evalC model@(Model _ _ constPr discount discObs snell exchange _ _) contract = do
-  cache <- get
-  case Map.lookup contract cache of
-    -- If this contract is already in the cache, just return it:
-    Just result -> return result
-    -- Otherwise evaluate and store it:
+  st <- get
+  -- Look up in the unified map using KContract
+  case Map.lookup (KContract contract) (cache st) of
+    Just (VDouble cachedPR) -> return cachedPR
+    -- If found something but it's VBool, that's a mismatch
+    Just (VBool _)          -> error "Contract was stored with VBool, logic bug!"
     Nothing -> do
+      -- Not in cache => actually evaluate
       result <- eval contract
-      modify (Map.insert contract result)
+      -- Insert the result as VDouble
+      let newMap = Map.insert (KContract contract) (VDouble result) (cache st)
+      put st { cache = newMap }
       return result
   where
     ----------------------------------------------------------------------------
-    -- 2a. The local `eval` function does the real recursive work
+    -- The local `eval` function does the real recursive work
     ----------------------------------------------------------------------------
     eval :: Contract -> EvalM (PR Double)
     eval None =
@@ -149,13 +177,13 @@ evalC model@(Model _ _ constPr discount discObs snell exchange _ _) contract = d
       cVal <- evalC model c
       return (snell d cVal)
 
-    eval (When obs c) = do
-      obsPR <- evalO model obs
+    eval (AcquireWhen obs c) = do
+      obsPR <- evalBO model obs
       cVal <- evalC model c
       return (discObs obsPR cVal)
 
     eval (Scale obs c) = do
-      obsPR <- evalO model obs
+      obsPR <- evalDO model obs
       cVal   <- evalC model c
       return (obsPR * cVal)
 
@@ -163,17 +191,41 @@ evalC model@(Model _ _ constPr discount discObs snell exchange _ _) contract = d
 -- 3. Evaluating an observation with memoization
 ----------------------------------------------------------------------------
 
-evalO :: Model -> Obs a -> EvalM (PR a)
-evalO model@(Model _ _ constPr _ _ _ _ stockModel datePr) obs = eval obs
+evalDO :: Model -> Obs Double -> EvalM (PR Double)
+evalDO model@(Model _ _ constPr _ _ _ _ stockModel _) obsD = do
+  st <- get
+  case Map.lookup (KObsDouble obsD) (cache st) of
+    Just (VDouble prD) -> return prD
+    Just (VBool _)     -> error "Obs Double is stored as VBool, logic error!"
+    Nothing -> do
+      pr <- eval obsD
+      let newMap = Map.insert (KObsDouble obsD) (VDouble pr) (cache st)
+      put st { cache = newMap }
+      return pr
   where
-        eval :: Obs a -> EvalM (PR a)
-        eval (Konst k) = return (constPr (realToFrac k))
-        eval (StockPrice stk) = return (stockModel stk)
-        eval (DateO d) = return (datePr d)
-        eval (LiftD op o) = do
-          po <- evalO model o
-          return (ModelUtils.lift (unaryOpMap op) po)
-        eval (Lift2D op o1 o2) = do
-          po1 <- evalO model o1
-          po2 <- evalO model o2
-          return (ModelUtils.lift2 (binaryOpMap op) po1 po2)
+    eval :: Obs Double -> EvalM (PR Double)
+    eval (Konst k) = return (constPr (realToFrac k))
+    eval (StockPrice stk) = return (stockModel stk)
+    eval (LiftD op o) = do
+      po <- evalDO model o
+      return (ModelUtils.lift (unaryOpMap op) po)
+    eval (Lift2D op o1 o2) = do
+      po1 <- evalDO model o1
+      po2 <- evalDO model o2
+      return (ModelUtils.lift2 (binaryOpMap op) po1 po2)  
+
+
+evalBO ::  Model -> Obs Bool -> EvalM (PR Bool)
+evalBO model@(Model _ _ _ _ _ _ _ _ datePr) obsB = do
+  st <- get
+  case Map.lookup (KObsBool obsB) (cache st) of
+    Just (VBool prB) -> return prB
+    Just (VDouble _) -> error "Obs Bool stored as VDouble, logic error!"
+    Nothing -> do
+      pr <- eval obsB
+      let newMap = Map.insert (KObsBool obsB) (VBool pr) (cache st)
+      put st { cache = newMap }
+      return pr
+  where
+    eval :: Obs Bool -> EvalM (PR Bool)
+    eval (DateO d) = return (datePr d)

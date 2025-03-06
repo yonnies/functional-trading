@@ -35,15 +35,15 @@ daysBetween d1 d2 = fromIntegral (diffDays d2 d1)
 ----------------------------- Contracts ------------------------------
 
 data Contract
-    = None                          -- Contract with no obligations
-    | One Currency                  -- Contract for one unit of a currency
-    | Give Contract                 -- Opposite position of a contract
-    | And Contract Contract         -- Adds the value of two contracts together
-    | Or Contract Contract          -- Takes the contract that will yield the maximum value today
-    | AcquireOn Date Contract       -- Sets the aquisition date of a contract where the discounting should begin
-    | AcquireOnBefore Date Contract -- Shows oppportunity to acquire a contract anytime before a certain date 
-    | Scale (Obs Double) Contract   -- Scales a contract by a numeric observable 
-    | When (Obs Bool) Contract
+    = None                              -- Contract with no obligations
+    | One Currency                      -- Contract for one unit of a currency
+    | Give Contract                     -- Opposite position of a contract
+    | And Contract Contract             -- Adds the value of two contracts together
+    | Or Contract Contract              -- Takes the contract that will yield the maximum value today
+    | AcquireOn Date Contract           -- Sets the horizon based on a date of a contract where the discounting should begin
+    | AcquireOnBefore Date Contract     -- Shows oppportunity to acquire a contract anytime before a certain date 
+    | Scale (Obs Double) Contract       -- Scales a contract by a numeric observable 
+    | AcquireWhen (Obs Bool) Contract   -- Sets the horizon based on a boolean event of a contract where the discounting should begin
     deriving (Show, Eq, Ord)
 
 ----------------------------- Observables -----------------------------
@@ -76,14 +76,16 @@ instance Fractional (Obs Double) where
   fromRational = error "fromRational not implemented for Obs Double"
 
 
--- | Unary numeric operators
+-- Enumerated types for unary and binary numeric operations.
+-- These are needed because Haskell does not support Eq or Ord 
+-- for function types (e.g., (Double -> Double)), which means we 
+-- cannot directly store raw function values in our Obs data type.
 data UnaryOp
-  = UNegate      -- Negate
-  | UAbs         -- Absolute value
-  | USignum      -- Signum
+  = UNegate
+  | UAbs  
+  | USignum
   deriving (Eq, Show, Ord)
 
--- | Binary numeric operators
 data BinaryOp
   = BAdd
   | BSub
@@ -116,7 +118,7 @@ scale = Scale
 konst = Konst
 stockPrice = StockPrice
 dateO = DateO
-when = When
+acquireWhen = AcquireWhen
 
 ----------------------------------------------------
 -- Supported Currencies & Stocks 
