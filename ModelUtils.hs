@@ -150,7 +150,7 @@ exampleModel startDate stepSize = Model {
         discount :: Int -> PR Double -> Either Error (PR Double)
         discount lattice_depth (PR pr)
             | lattice_depth < 1 = Left "Contract acquisition has been specified to an earlier date than model start date"
-            | lattice_depth >= length pr = Left "Lattice depth exceeds PR slices in discount"
+            | lattice_depth > length (take lattice_depth pr) = Left "Lattice depth exceeds PR slices in discount"
             | otherwise = Right $ PR (discount' 1)
             where
                 discount' :: TimeStep -> [ValSlice Double]
