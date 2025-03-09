@@ -54,6 +54,9 @@ european2 :: Contract
 european2 = european (date "01-02-2025") (Scale (StockPrice DIS) (One GBP)) 120 -- Too expesive
 -- Should return 0 
 
+european3 :: Contract
+european3 = european (date "01-03-2027") (Scale (StockPrice DIS) (One GBP)) 100 
+
 -- european3 = european (date "24 Apr 2003") (
 --     zcb (date "12 May 2003") 0.4 GBP `and`
 --     zcb (date "12 May 2004") 9.3 GBP `and`
@@ -75,6 +78,9 @@ american1 = american (date "01-03-2025") (Scale (StockPrice DIS) (One GBP)) 100
 american2 :: Contract
 american2 = american (date "05-02-2025") (Scale (StockPrice DIS) (One GBP)) 120 -- Too expesive
 -- Should return 0 
+
+american3 :: Contract
+american3 = american (date "01-03-2027") (Scale (StockPrice DIS) (One GBP)) 100 
 
 -------------------------------------------------------
 -- Invalid contracts

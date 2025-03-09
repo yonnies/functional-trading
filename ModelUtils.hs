@@ -188,13 +188,20 @@ exampleModel startDate stepSize = Model {
             where 
                 lattice_depth = ((daysBetween startDate d) `div` stepSize)  
 
+                maxByAverage :: [Double] -> [Double] -> [Double]
+                maxByAverage xs ys
+                    | avg xs >= avg ys = xs
+                    | otherwise        = ys
+                    where
+                        avg lst = sum lst / fromIntegral (length lst)
+
                 snell' :: TimeStep -> [ValSlice Double]
                 snell' t 
                     | t == lattice_depth + 1 = [pr !! lattice_depth]
                     | otherwise = curSlice : restSlices 
                         where 
                             restSlices@(nextSlice:_) = snell' (t + 1) 
-                            curSlice = max (discountSlice (t+1) nextSlice) (pr !! (t-1))
+                            curSlice = maxByAverage (discountSlice (t+1) nextSlice) (pr !! (t-1))
 
 
         discountSlice :: TimeStep -> ValSlice Double -> ValSlice Double
