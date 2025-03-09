@@ -123,7 +123,7 @@ acquireWhen = AcquireWhen
 ----------------------------------------------------
 -- Supported Currencies & Stocks 
 
-data Currency = GBP | USD | EUR
+data Currency = GBP | USD | EUR | BGN
     deriving (Eq, Show, Ord)
                               
 data Stock = DIS | TSLA | NVDA

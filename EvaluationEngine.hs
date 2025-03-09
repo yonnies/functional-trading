@@ -151,8 +151,9 @@ evalC model@(Model _ _ constPr discDate discObs snell exchange _ _) contract = d
     eval None =
       return (constPr 0)
 
-    eval (One cur) =
-      return (exchange cur)
+    eval (One cur) = do
+      pr <- liftEither (exchange cur)
+      return pr
 
     eval (Give c) = do
       cVal <- evalC model c
@@ -175,7 +176,8 @@ evalC model@(Model _ _ constPr discDate discObs snell exchange _ _) contract = d
 
     eval (AcquireOnBefore d c) = do
       cVal <- evalC model c
-      return (snell d cVal)
+      pr <- liftEither (snell d cVal)
+      return pr
 
     eval (AcquireWhen obs c) = do
       obsPR <- evalBO model obs
@@ -206,7 +208,9 @@ evalDO model@(Model _ _ constPr _ _ _ _ stockModel _) obsD = do
   where
     eval :: Obs Double -> EvalM (PR Double)
     eval (Konst k) = return (constPr (realToFrac k))
-    eval (StockPrice stk) = return (stockModel stk)
+    eval (StockPrice stk) = do 
+      pr <- liftEither (stockModel stk)
+      return pr
     eval (LiftD op o) = do
       po <- evalDO model o
       return (ModelUtils.lift (unaryOpMap op) po)

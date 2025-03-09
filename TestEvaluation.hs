@@ -49,10 +49,10 @@ american2 = american (date "05-02-2025") (Scale (StockPrice DIS) (One GBP)) 120 
 -- use with take 4 unwrapPR
 testContract =  ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 100) (one GBP)))
 
-invalidContract = AcquireOn (date "06-11-2028") ((Scale (Konst 10) (One GBP)) `And` (AcquireOn (date "06-12-2024") $ Give $ (Scale (Konst 5) (One GBP))))
+inv1 = AcquireOn (date "06-11-2028") ((Scale (Konst 10) (One GBP)) `And` (AcquireOn (date "06-12-2024") $ Give $ (Scale (Konst 5) (One GBP))))
 
-invalidAcquire :: Contract
-invalidAcquire = acquireOn (date "01-01-2026") (acquireOn (date "01-01-2025") ((one GBP) `Or` none))
+inv2 :: Contract
+inv2 = acquireOn (date "01-01-2026") (acquireOn (date "01-01-2025") ((one GBP) `Or` none))
 
 -- Helpers
 unwrapPR :: PR a -> [ValSlice a]
@@ -165,3 +165,6 @@ c4 = acquireOn (date "01-11-2028") (scale (konst 1300 + konst 400) (one GBP))
 
 c5 = AcquireOn (date "01-03-2025") ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 80 + konst 20) (one GBP)))
 
+inv3 = european (date "01-03-2024") (Scale (StockPrice DIS) (One GBP)) 100 
+
+inv4 = european (date "01-03-2025") (Scale (StockPrice DIS) (One BGN)) 100 

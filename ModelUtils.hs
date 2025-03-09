@@ -66,9 +66,9 @@ data Model = Model {
     constPr         :: Double -> PR Double,
     discDate        :: Date -> PR Double -> Either Error (PR Double),
     discObs         :: PR Bool -> PR Double -> Either Error (PR Double),
-    snell           :: Date -> PR Double -> PR Double,
-    exchange        :: Currency -> PR Double,
-    stockModel      :: Stock -> PR Double,
+    snell           :: Date -> PR Double -> Either Error (PR Double),
+    exchange        :: Currency -> Either Error (PR Double),
+    stockModel      :: Stock -> Either Error (PR Double),
     datePr          :: Date -> PR Bool
     -- dfltPr          :: Date -> PR Bool
     }
@@ -96,7 +96,7 @@ exampleModel startDate stepSize = Model {
         constSlice :: Int -> a -> [ValSlice a]
         constSlice n x = replicate n x : constSlice (n+1) x
 
-        datePr :: Date -> PR Bool
+        datePr :: Date -> Either Error (PR Bool)
         datePr d = PR (datePr' 1)
             where 
                 date_loc = ((daysBetween startDate d) `div` stepSize) + 1
@@ -108,11 +108,11 @@ exampleModel startDate stepSize = Model {
 
 
         -- for simplicity base currency is GBP
-        exchange :: Currency -> PR Double
+        exchange :: Currency -> Either Error (PR Double)
         exchange cur = 
             case lookup cur exchangeRates of 
-                Just lm -> lm
-                Nothing -> error $ "Exchange rate of currency " ++ (show cur) ++ " not found"
+                Just lm -> Right lm
+                Nothing -> Left ("Exchange rate of currency " ++ (show cur) ++ " not found")
             where
                 -- Volatility is annualised
                 exchangeRates :: [(Currency, PR Double)]
@@ -125,11 +125,11 @@ exampleModel startDate stepSize = Model {
                 exchRateModel :: Double -> Double -> Double -> PR Double
                 exchRateModel initVal vol timeS = PR $ _CCRModel initVal vol timeS
 
-        stockModel :: Stock -> PR Double
+        stockModel :: Stock -> Either Error (PR Double)
         stockModel stk =
             case lookup stk stockPrices of 
-                    Just lm -> lm
-                    Nothing -> error $ "Stock model for stock " ++ (show stk) ++ " not found"
+                    Just lm -> Right lm
+                    Nothing -> Left ("Stock model for stock " ++ (show stk) ++ " not found")
 
             where
                 -- Volatility is monthly
@@ -175,8 +175,11 @@ exampleModel startDate stepSize = Model {
             | otherwise = findHorizon bvss (n+1)
 
     
-        snell :: Date -> PR Double -> PR Double
-        snell d (PR pr) = PR (snell' 1)
+        snell :: Date -> PR Double -> Either Error (PR Double)
+        snell d (PR pr) 
+            | lattice_depth < 1 = Left "Contract acquisition has been specified to an earlier date than model start date"
+            | lattice_depth > length (take lattice_depth pr) = Left "Lattice depth exceeds PR slices in snell"
+            | otherwise = Right $ PR (snell' 1)
             where 
                 lattice_depth = ((daysBetween startDate d) `div` stepSize)  
 
