@@ -1,5 +1,7 @@
 module ModelUtils where
 
+import Control.DeepSeq (NFData(..))
+
 import ContractsDSL
 
 type TimeStep = Int 
@@ -27,6 +29,10 @@ instance (Show a) => Show (PR a) where
         castToDouble v = case reads (show v) :: [(Double, String)] of
                             [(num, "")] -> Just num
                             _ -> Nothing
+
+-- Required for benchmarking
+instance (NFData a) => NFData (PR a) where
+  rnf (PR slices) = rnf slices
 
 instance Num a => Num (PR a) where
     (+) = lift2 (+)
@@ -96,7 +102,7 @@ exampleModel startDate stepSize = Model {
         constSlice :: Int -> a -> [ValSlice a]
         constSlice n x = replicate n x : constSlice (n+1) x
 
-        datePr :: Date -> Either Error (PR Bool)
+        datePr :: Date -> PR Bool
         datePr d = PR (datePr' 1)
             where 
                 date_loc = ((daysBetween startDate d) `div` stepSize) + 1

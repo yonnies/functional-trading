@@ -1,3 +1,5 @@
+module TestSuite where
+
 import Test.QuickCheck
 import Data.Time (addDays)
 
