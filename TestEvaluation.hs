@@ -16,7 +16,7 @@ takeFailablePR n pr = case pr of
     Left err -> Left err
     Right (PR x) -> Right $ PR (take n x)
 
-exampleModelInstance = exampleModel today 30
+eModel = exampleModel today 30
 
 -------------------------------------------------------
 -- Discount bonds
@@ -90,6 +90,9 @@ inv3 = european (date "01-03-2024") (Scale (StockPrice DIS) (One GBP)) 100 -- da
 
 inv4 = european (date "01-03-2025") (Scale (StockPrice DIS) (One BGN)) 100 -- inv currency
 
+inv5 = AcquireWhen (dateO (date "01-03-2023")) ((Scale (StockPrice DIS) (One GBP)))
+
+
 -------------------------------------------------------
 -- Optimisation Layer tests
 -------------------------------------------------------
@@ -121,6 +124,6 @@ c5 = AcquireOn (date "01-03-2025") ((Scale (StockPrice DIS) (One GBP)) `And` giv
 -- Model specific functions
 -------------------------------------------------------
 
-datePrTest = datePr exampleModelInstance (date "01-02-2025")
+datePrTest = datePr eModel (date "01-02-2025")
 
-stockModelTest = takeFailablePR 5 $ stockModel exampleModelInstance DIS
+stockModelTest = takeFailablePR 5 $ stockModel eModel DIS

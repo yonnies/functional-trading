@@ -9,6 +9,7 @@ module EvaluationEngine where
 import ContractsDSL
 import ModelUtils
 
+import Data.Time (addDays)
 import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
@@ -33,20 +34,30 @@ typeCheck (Or c1 c2) d = do
   c1' <- typeCheck c1 d
   c2' <- typeCheck c2 d
   return (Or c1' c2')
+typeCheck (Scale obs c) d = do
+  c' <- typeCheck c d
+  return (Scale obs c')
 typeCheck (AcquireOn d2 c) d1
   | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
   | otherwise = do
       c' <- typeCheck c d2
       return (AcquireOn d2 c')
+typeCheck (AcquireWhen obs c) d1 = 
+  case obs of
+    DateO d2
+      | d1 /= infiniteHorizon && d1 > d2 -> Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
+      | otherwise -> do
+          c' <- typeCheck c d2  
+          return (AcquireOn d2 c')
+    _ -> do
+      let d2 = if d1 == infiniteHorizon then addDays (-1) d1 else d1
+      c' <- typeCheck c d2
+      return (AcquireOnBefore d2 c')
 typeCheck (AcquireOnBefore d2 c) d1
   | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
   | otherwise = do
       c' <- typeCheck c d2
       return (AcquireOnBefore d2 c')
-typeCheck (Scale obs c) d = do
-  c' <- typeCheck c d
-  return (Scale obs c')
-typeCheck x d = return x
 
 
 ------------------------- Optimisation layer -------------------------
@@ -71,6 +82,8 @@ optimiseContract (And c1 c2)
     | c2 == None = optimiseContract c1
     | otherwise  = And (optimiseContract c1) (optimiseContract c2)
 
+optimiseContract (Scale obs c) = Scale obs (optimiseContract c)
+
 -- Nested acquire on:
 optimiseContract (AcquireOn d1 (AcquireOn d2 c))  
     | d1 <= d2   = AcquireOn d1 (optimiseContract c)
@@ -79,7 +92,7 @@ optimiseContract (AcquireOn d c) = AcquireOn d (optimiseContract c)
 
 optimiseContract (AcquireOnBefore d c) = AcquireOnBefore d (optimiseContract c)
 
-optimiseContract (Scale obs c) = Scale obs (optimiseContract c)
+optimiseContract (AcquireWhen obs c) = AcquireWhen obs (optimiseContract c)
 
 -- Base cases: None, One, etc., are already in simplest form
 optimiseContract contract = contract
@@ -117,8 +130,8 @@ emptyEvalState = EvalState { cache = Map.empty }
 ---------------------------------------
 -- Top-level evaluation
 ---------------------------------------
-eval_contract :: Model -> Contract -> Either String (PR Double)
-eval_contract model c = do
+eval :: Model -> Contract -> Either String (PR Double)
+eval model c = do
   -- If typeCheck fails, we short-circuit with a Left.
   c' <- typeCheck c infiniteHorizon
   let optC = optimiseContract c'
@@ -138,7 +151,7 @@ evalC model@(Model _ _ constPr discDate discObs snell exchange _ _) contract = d
     Just (VBool _)          -> throwError "Contract was stored with VBool, logic bug!"
     Nothing -> do
       -- Not in cache
-      result <- eval contract
+      result <- eval' contract
       -- Insert the result
       let newMap = Map.insert (KContract contract) (VDouble result) (cache st)
       put st { cache = newMap }
@@ -147,45 +160,45 @@ evalC model@(Model _ _ constPr discDate discObs snell exchange _ _) contract = d
     ----------------------------------------------------------------------------
     -- The local `eval` function does the real recursive work
     ----------------------------------------------------------------------------
-    eval :: Contract -> EvalM (PR Double)
-    eval None =
+    eval' :: Contract -> EvalM (PR Double)
+    eval' None =
       return (constPr 0)
 
-    eval (One cur) = do
+    eval' (One cur) = do
       pr <- liftEither (exchange cur)
       return pr
 
-    eval (Give c) = do
+    eval' (Give c) = do
       cVal <- evalC model c
       return (negate cVal)
 
-    eval (And c1 c2) = do
+    eval' (And c1 c2) = do
       pr1 <- evalC model c1
       pr2 <- evalC model c2
       return (pr1 + pr2)
 
-    eval (Or c1 c2) = do
+    eval' (Or c1 c2) = do
       pr1 <- evalC model c1
       pr2 <- evalC model c2
       return (maximumValToday pr1 pr2)
 
-    eval (AcquireOn d c) = do
+    eval' (AcquireOn d c) = do
       cVal <- evalC model c
       pr <- liftEither (discDate d cVal)
       return pr
 
-    eval (AcquireOnBefore d c) = do
+    eval' (AcquireOnBefore d c) = do
       cVal <- evalC model c
       pr <- liftEither (snell d cVal)
       return pr
 
-    eval (AcquireWhen obs c) = do
+    eval' (AcquireWhen obs c) = do
       obsPR <- evalBO model obs
       cVal <- evalC model c
       pr <- liftEither (discObs obsPR cVal)
       return pr
 
-    eval (Scale obs c) = do
+    eval' (Scale obs c) = do
       obsPR <- evalDO model obs
       cVal   <- evalC model c
       return (obsPR * cVal)
@@ -201,36 +214,36 @@ evalDO model@(Model _ _ constPr _ _ _ _ stockModel _) obsD = do
     Just (VDouble prD) -> return prD
     Just (VBool _)     -> throwError "Obs Double is stored as VBool, logic error!"
     Nothing -> do
-      pr <- eval obsD
+      pr <- eval' obsD
       let newMap = Map.insert (KObsDouble obsD) (VDouble pr) (cache st)
       put st { cache = newMap }
       return pr
   where
-    eval :: Obs Double -> EvalM (PR Double)
-    eval (Konst k) = return (constPr (realToFrac k))
-    eval (StockPrice stk) = do 
+    eval' :: Obs Double -> EvalM (PR Double)
+    eval' (Konst k) = return (constPr (realToFrac k))
+    eval' (StockPrice stk) = do 
       pr <- liftEither (stockModel stk)
       return pr
-    eval (LiftD op o) = do
+    eval' (LiftD op o) = do
       po <- evalDO model o
       return (ModelUtils.lift (unaryOpMap op) po)
-    eval (Lift2D op o1 o2) = do
+    eval' (Lift2D op o1 o2) = do
       po1 <- evalDO model o1
       po2 <- evalDO model o2
       return (ModelUtils.lift2 (binaryOpMap op) po1 po2)  
 
 
-evalBO ::  Model -> Obs Bool -> EvalM (PR Bool)
+evalBO :: Model -> Obs Bool -> EvalM (PR Bool)
 evalBO model@(Model _ _ _ _ _ _ _ _ datePr) obsB = do
   st <- get
   case Map.lookup (KObsBool obsB) (cache st) of
     Just (VBool prB) -> return prB
     Just (VDouble _) -> throwError "Obs Bool stored as VDouble, logic error!"
     Nothing -> do
-      pr <- eval obsB
+      pr <- eval' obsB
       let newMap = Map.insert (KObsBool obsB) (VBool pr) (cache st)
       put st { cache = newMap }
       return pr
   where
-    eval :: Obs Bool -> EvalM (PR Bool)
-    eval (DateO d) = return (datePr d)
+    eval' :: Obs Bool -> EvalM (PR Bool)
+    eval' (DateO d) = return (datePr d)

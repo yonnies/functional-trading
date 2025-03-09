@@ -6,7 +6,7 @@
 
 module ContractsDSL where 
 
-import Data.Time (Day, parseTimeM, defaultTimeLocale, diffDays)
+import Data.Time (Day, parseTimeM, defaultTimeLocale, diffDays, addDays)
 
 --------------------------- Time and dates ---------------------------
 
@@ -54,6 +54,7 @@ data Obs a where
     DateO :: Date -> Obs Bool
     LiftD :: UnaryOp -> Obs Double -> Obs Double
     Lift2D :: BinaryOp -> Obs Double -> Obs Double -> Obs Double
+    Dflt :: Date -> Obs Bool
     -- LiftB :: (Bool -> Bool) -> Obs Bool -> Obs Bool
     -- Lift2B ::(Bool -> Bool -> Bool) -> Obs Bool -> Obs Bool -> Obs Bool
     
