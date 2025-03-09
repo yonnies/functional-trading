@@ -167,7 +167,6 @@ exampleModel startDate stepSize = Model {
         discDate :: Date -> PR Double -> Either Error (PR Double)
         discDate d = discount ((daysBetween startDate d) `div` stepSize)
 
-        -- Keeping findHorizon as is
         findHorizon :: [ValSlice Bool] -> Int -> Int
         findHorizon [] _ = -1 
         findHorizon (bvs:bvss) n
