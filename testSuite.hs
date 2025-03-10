@@ -67,9 +67,9 @@ prop_orScaleDistributive :: NonNegative Double -> Contract -> Contract -> Proper
 prop_orScaleDistributive (NonNegative x) c1 c2 = within 1000000 $
     let left  = Scale (konst x) (c1 `or_` c2)
         right = (Scale (konst x) c1) `or_` (Scale (konst x) c2)
-    in eval_contract model left === eval_contract model right
+    in eval model left === eval model right
   where
-    model = exampleModel today 365
+    model = exampleModel today 30
 
 main :: IO ()
 main = do

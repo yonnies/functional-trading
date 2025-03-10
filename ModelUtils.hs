@@ -155,8 +155,9 @@ exampleModel startDate stepSize = Model {
 
         discount :: Int -> PR Double -> Either Error (PR Double)
         discount lattice_depth (PR pr)
-            | lattice_depth < 1 = Left "Contract acquisition has been specified to an earlier date than model start date"
+            | lattice_depth < 0 = Left "Contract acquisition has been specified to an earlier date than model start date"
             | lattice_depth > length (take lattice_depth pr) = Left "Lattice depth exceeds PR slices in discount"
+            | lattice_depth == 0 = Right $ PR ([pr !! 0])
             | otherwise = Right $ PR (discount' 1)
             where
                 discount' :: TimeStep -> [ValSlice Double]
@@ -182,11 +183,13 @@ exampleModel startDate stepSize = Model {
     
         snell :: Date -> PR Double -> Either Error (PR Double)
         snell d (PR pr) 
-            | lattice_depth < 1 = Left "Contract acquisition has been specified to an earlier date than model start date"
-            | lattice_depth > length (take lattice_depth pr) = Left "Lattice depth exceeds PR slices in snell"
+            | lattice_depth < 0 = Left "Contract acquisition has been specified to an earlier date than model start date"
+            | lattice_depth == 0 = Right $ PR ([pr !! 0])
             | otherwise = Right $ PR (snell' 1)
             where 
-                lattice_depth = ((daysBetween startDate d) `div` stepSize)  
+
+                lattice_depth = ((daysBetween startDate d) `div` stepSize) -- 16     
+                underlying_process_len = length (take lattice_depth pr) -- 10
 
                 maxByAverage :: [Double] -> [Double] -> [Double]
                 maxByAverage xs ys
@@ -197,7 +200,9 @@ exampleModel startDate stepSize = Model {
 
                 snell' :: TimeStep -> [ValSlice Double]
                 snell' t 
-                    | t == lattice_depth + 1 = [pr !! lattice_depth]
+                    | t == underlying_process_len + 1 && t == lattice_depth + 1 = [pr !! lattice_depth]
+                    | t > underlying_process_len && t <= lattice_depth = (replicate t 0) : snell' (t+1)
+                    | t > lattice_depth = [replicate t 0]
                     | otherwise = curSlice : restSlices 
                         where 
                             restSlices@(nextSlice:_) = snell' (t + 1) 

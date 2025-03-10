@@ -16,49 +16,27 @@ import qualified Data.Map.Strict as Map
 
 ------------------------- Type-checker -------------------------
 
-typeCheck :: Contract -> Date -> Either Error Contract 
-typeCheck None d 
+-- Now we only return Either Error (), so we never rebuild the contract.
+typeCheck :: Contract -> Date -> Either Error ()
+typeCheck None d
   | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
-  | otherwise            = Right None
-typeCheck (One cur) d 
+  | otherwise = Right ()
+typeCheck (One cur) d
   | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
-  | otherwise            = Right (One cur)
+  | otherwise = Right ()
 typeCheck (Give c) d = do
-  c' <- typeCheck c d
-  return (Give c')
+  typeCheck c d
 typeCheck (And c1 c2) d = do
-  c1' <- typeCheck c1 d
-  c2' <- typeCheck c2 d
-  return (And c1' c2')
+  typeCheck c1 d
+  typeCheck c2 d
 typeCheck (Or c1 c2) d = do
-  c1' <- typeCheck c1 d
-  c2' <- typeCheck c2 d
-  return (Or c1' c2')
-typeCheck (Scale obs c) d = do
-  c' <- typeCheck c d
-  return (Scale obs c')
-typeCheck (AcquireOn d2 c) d1
-  | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
-  | otherwise = do
-      c' <- typeCheck c d2
-      return (AcquireOn d2 c')
-typeCheck (AcquireWhen obs c) d1 = 
-  case obs of
-    DateO d2
-      | d1 /= infiniteHorizon && d1 > d2 -> Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
-      | otherwise -> do
-          c' <- typeCheck c d2  
-          return (AcquireOn d2 c')
-    _ -> do
-      let d2 = if d1 == infiniteHorizon then addDays (-1) d1 else d1
-      c' <- typeCheck c d2
-      return (AcquireOnBefore d2 c')
-typeCheck (AcquireOnBefore d2 c) d1
-  | d1 /= infiniteHorizon && d1 > d2 = Left "Error: Attempting to acquire contract with an earlier expiry date at a later date."
-  | otherwise = do
-      c' <- typeCheck c d2
-      return (AcquireOnBefore d2 c')
-
+  typeCheck c1 d
+  typeCheck c2 d
+typeCheck (Scale obs c) d =
+  typeCheck c d
+typeCheck (AcquireOn d2 c) d1 = Right ()
+typeCheck (AcquireWhen obs c) d1 = Right ()
+typeCheck (AcquireOnBefore d2 c) d1 = Right ()
 
 ------------------------- Optimisation layer -------------------------
 
@@ -131,27 +109,27 @@ emptyEvalState = EvalState { cache = Map.empty }
 -- Top-level evaluation
 ---------------------------------------
 eval :: Model -> Contract -> Either String (PR Double)
-eval model c = do
+eval model@(Model startDate _ _ _ _ _ _ _ _) c = do
   -- If typeCheck fails, we short-circuit with a Left.
-  c' <- typeCheck c infiniteHorizon
-  let optC = optimiseContract c'
+  _ <- typeCheck c infiniteHorizon
+  let optC = optimiseContract c
   -- Run our StateT-based evaluator with an empty cache:
-  (result, _finalState) <- runStateT (evalC model optC) emptyEvalState
+  (result, _finalState) <- runStateT (evalC model optC startDate) emptyEvalState
   return result
 
 ----------------------------------------------------------------------------
 -- Memoized evaluation of a contract
 ----------------------------------------------------------------------------
 
-evalC :: Model -> Contract -> EvalM (PR Double)
-evalC model@(Model _ _ constPr discDate discObs snell exchange _ _) contract = do
+evalC :: Model -> Contract -> Date -> EvalM (PR Double)
+evalC model@(Model startDate stepSize constPr discDate discObs snell exchange _ _) contract earliestAcDate = do
   st <- get
   case Map.lookup (KContract contract) (cache st) of
     Just (VDouble cachedPR) -> return cachedPR
     Just (VBool _)          -> throwError "Contract was stored with VBool, logic bug!"
     Nothing -> do
       -- Not in cache
-      result <- eval' contract
+      result <- eval' contract earliestAcDate
       -- Insert the result
       let newMap = Map.insert (KContract contract) (VDouble result) (cache st)
       put st { cache = newMap }
@@ -160,51 +138,59 @@ evalC model@(Model _ _ constPr discDate discObs snell exchange _ _) contract = d
     ----------------------------------------------------------------------------
     -- The local `eval` function does the real recursive work
     ----------------------------------------------------------------------------
-    eval' :: Contract -> EvalM (PR Double)
-    eval' None =
+    eval' :: Contract -> Date -> EvalM (PR Double)
+    eval' None _ =
       return (constPr 0)
 
-    eval' (One cur) = do
+    eval' (One cur) _ = do
       pr <- liftEither (exchange cur)
       return pr
 
-    eval' (Give c) = do
-      cVal <- evalC model c
+    eval' (Give c) d = do
+      cVal <- evalC model c d
       return (negate cVal)
 
-    eval' (And c1 c2) = do
-      pr1 <- evalC model c1
-      pr2 <- evalC model c2
+    eval' (And c1 c2) d = do
+      pr1 <- evalC model c1 d
+      pr2 <- evalC model c2 d
       return (pr1 + pr2)
 
-    eval' (Or c1 c2) = do
-      pr1 <- evalC model c1
-      pr2 <- evalC model c2
-      return (maximumValToday pr1 pr2)
+    eval' (Or c1 c2) d = do
+        (PR pr1) <- evalC model c1 d
+        (PR pr2) <- evalC model c2 d
 
-    eval' (AcquireOn d c) = do
-      cVal <- evalC model c
-      pr <- liftEither (discDate d cVal)
+        let startTimeStep = ((daysBetween startDate d) `div` stepSize) 
+        let pr1Len = length $ take startTimeStep pr1 
+        let pr2Len = length $ take startTimeStep pr2 
+
+        if pr1Len == startTimeStep && pr2Len == startTimeStep then return (maximumValToday (PR pr1) (PR pr2))
+        else if pr1Len == startTimeStep then return (PR pr1)
+        else if pr2Len == startTimeStep then return (PR pr2)
+        else return (constPr 0)
+
+    eval' (AcquireOn d2 c) d1 = do
+      cVal <- evalC model c d2
+      pr <- liftEither (discDate d2 cVal)
       return pr
 
-    eval' (AcquireOnBefore d c) = do
-      cVal <- evalC model c
-      pr <- liftEither (snell d cVal)
+    eval' (AcquireOnBefore d2 c) _ = do
+      cVal <- evalC model c startDate
+      pr <- liftEither (snell d2 cVal)
       return pr
 
-    eval' (AcquireWhen obs c) = do
+    eval' (AcquireWhen obs c) d = do
       obsPR <- evalBO model obs
-      cVal <- evalC model c
+      cVal <- evalC model c d
       pr <- liftEither (discObs obsPR cVal)
       return pr
 
-    eval' (Scale obs c) = do
+    eval' (Scale obs c) d = do
       obsPR <- evalDO model obs
-      cVal   <- evalC model c
+      cVal   <- evalC model c d
       return (obsPR * cVal)
 
 ----------------------------------------------------------------------------
--- 3. Evaluating an observation with memoization
+-- Memoized evaluation of an observable
 ----------------------------------------------------------------------------
 
 evalDO :: Model -> Obs Double -> EvalM (PR Double)

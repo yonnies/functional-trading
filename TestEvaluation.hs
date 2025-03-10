@@ -18,6 +18,8 @@ takeFailablePR n pr = case pr of
 
 eModel = exampleModel today 30
 
+eModel2 = exampleModel today 365
+
 -------------------------------------------------------
 -- Discount bonds
 -------------------------------------------------------
@@ -126,6 +128,31 @@ c4 = acquireOn (date "01-11-2028") (scale (konst 1300 + konst 400) (one GBP))
 
 c5 = AcquireOn (date "01-03-2025") ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 80 + konst 20) (one GBP)))
 
+
+-- One is too early
+c6 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2025") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2027") (scale (konst 1) (one GBP))))
+
+-- Neither is too early 
+c7 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2027") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2027") (scale (konst 1) (one GBP))))
+
+-- Both are too early
+c8 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2025") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2025") (scale (konst 1) (one GBP))))
+
+-- American with an earlier date
+c9 = AcquireOnBefore (date "01-03-2026") c9_underlying
+
+c9_underlying = (AcquireOn (date "01-09-2025") (scale (konst 1000) (one GBP)))
+
+-- 
+c10 = AcquireOnBefore (date "01-09-2025") (AcquireOn (date "01-09-2029") (Or (One EUR) (One GBP)))
+c11 = AcquireOnBefore (date "01-09-2025") (Scale (Konst 0.6) (And (One GBP) (One USD)))
+
+c12 = Scale (konst 2) (c10 `or_` c11)
+c13 = Scale (konst 2) c10 `or_`  Scale (konst 2) c11
+
+c14 = Scale (Konst (-2.6666666666666665)) (AcquireOn (date "25-12-2030") (Or (And (AcquireOnBefore (date "30-12-2030") (Give (One EUR))) (One GBP)) (One GBP)))
+
+
 -------------------------------------------------------
 -- Model specific functions
 -------------------------------------------------------
@@ -133,3 +160,5 @@ c5 = AcquireOn (date "01-03-2025") ((Scale (StockPrice DIS) (One GBP)) `And` giv
 datePrTest = datePr eModel (date "01-02-2025")
 
 stockModelTest = takeFailablePR 5 $ stockModel eModel DIS
+
+
