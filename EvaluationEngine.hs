@@ -111,12 +111,12 @@ emptyEvalState = EvalState { cache = Map.empty }
 -- Top-level evaluation
 ---------------------------------------
 eval :: Model -> Contract -> Either String (PR Double)
-eval model@(Model startDate _ _ _ _ _ _ _ _) c = do
+eval model c = do
   -- If typeCheck fails, we short-circuit with a Left.
-  _ <- typeCheck c startDate
+  _ <- typeCheck c (startDate model)
   let optC = optimiseContract c
   -- Run our StateT-based evaluator with an empty cache:
-  (result, _finalState) <- runStateT (evalC model optC startDate) emptyEvalState
+  (result, _finalState) <- runStateT (evalC model optC (startDate model)) emptyEvalState
   return result
 
 ----------------------------------------------------------------------------
@@ -124,7 +124,7 @@ eval model@(Model startDate _ _ _ _ _ _ _ _) c = do
 ----------------------------------------------------------------------------
 
 evalC :: Model -> Contract -> Date -> EvalM (PR Double)
-evalC model@(Model startDate stepSize constPr discDate discObs snell exchange _ findHorizon) contract earliestAcDate = do
+evalC model contract earliestAcDate = do
   st <- get
   case Map.lookup (KContract contract) (cache st) of
     Just (VDouble cachedPR) -> return cachedPR
@@ -142,10 +142,10 @@ evalC model@(Model startDate stepSize constPr discDate discObs snell exchange _ 
     ----------------------------------------------------------------------------
     eval' :: Contract -> Date -> EvalM (PR Double)
     eval' None _ = 
-      return (constPr 0)
+      return (constPr model 0)
 
     eval' (One cur) _ = do
-      pr <- liftEither (exchange cur)
+      pr <- liftEither (exchange model cur)
       return pr
 
     eval' (Give c) d = do
@@ -164,41 +164,43 @@ evalC model@(Model startDate stepSize constPr discDate discObs snell exchange _ 
 
     eval' (AcquireOn d2 c) d1 = do
       let dist = abs (daysBetween d1 d2)
-      if dist < stepSize
+      let step = stepSize model
+      if dist < step
         then throwError $
             "For accurate model predictions, the number of days ("
             ++ show dist ++ ") between " ++ show d1 ++ " and " ++ show d2
-            ++ " should be larger than the model step size of " ++ show stepSize
+            ++ " should be larger than the model step size of " ++ show step
             ++ ". Use a model with a smaller step size."
         else if d2 < d1
-          then return (constPr 0)
+          then return (constPr model 0)
           else do
             cVal  <- evalC model c d2
-            pr    <- liftEither (discDate d2 cVal)
+            pr    <- liftEither (discDate model d2 cVal)
             return pr
 
     eval' (AcquireOnBefore d2 c) d1 = do
       let dist = abs (daysBetween d1 d2)
-      if dist < stepSize
+      let step = stepSize model
+      if dist < step
         then throwError $
             "For accurate model predictions, the number of days ("
             ++ show dist ++ ") between " ++ show d1 ++ " and " ++ show d2
-            ++ " should be larger than the model step size of " ++ show stepSize
+            ++ " should be larger than the model step size of " ++ show step
             ++ ". Use a model with a smaller step size."
         else if d2 < d1
-          then return (constPr 0)
+          then return (constPr model 0)
           else do
-            cVal <- evalC model c startDate
-            pr   <- liftEither (snell d2 cVal)
+            cVal <- evalC model c (startDate model)
+            pr   <- liftEither (snell model d2 cVal)
             return pr
 
     eval' (AcquireWhen obs c) d = do
       (PR obsPR) <- evalBO model obs
-      let d2 = (findHorizon obsPR)
-      let d1 = (daysBetween startDate d) `div` stepSize
-      if (d2 < d1) then return (constPr 0) else do
+      d2 <- liftEither (findHorizon model obsPR 0)
+      let d1 = (daysBetween (startDate model) d) `div` stepSize model
+      if (d2 < d1) then return (constPr model 0) else do
         cVal  <- evalC model c d
-        pr    <- liftEither (discObs (PR obsPR) cVal)
+        pr    <- liftEither (discObs model d2 cVal)
         return pr
 
     eval' (Scale obs c) d = do
@@ -207,11 +209,11 @@ evalC model@(Model startDate stepSize constPr discDate discObs snell exchange _ 
       return (obsPR * cVal)
 
 ----------------------------------------------------------------------------
--- Memoized evaluation of an observable
+-- Memoized evaluation of an observable (Updated to use accessors)
 ----------------------------------------------------------------------------
 
 evalDO :: Model -> Obs Double -> EvalM (PR Double)
-evalDO model@(Model _ _ constPr _ _ _ _ stockModel _) obsD = do
+evalDO model obsD = do
   st <- get
   case Map.lookup (KObsDouble obsD) (cache st) of
     Just (VDouble prD) -> return prD
@@ -223,9 +225,9 @@ evalDO model@(Model _ _ constPr _ _ _ _ stockModel _) obsD = do
       return pr
   where
     eval' :: Obs Double -> EvalM (PR Double)
-    eval' (Konst k) = return (constPr (realToFrac k))
+    eval' (Konst k) = return (constPr model (realToFrac k))
     eval' (StockPrice stk) = do 
-      pr <- liftEither (stockModel stk)
+      pr <- liftEither (stockModel model stk)
       return pr
     eval' (LiftD op o) = do
       po <- evalDO model o
@@ -235,9 +237,8 @@ evalDO model@(Model _ _ constPr _ _ _ _ stockModel _) obsD = do
       po2 <- evalDO model o2
       return (ModelUtils.lift2 (binaryOpMap op) po1 po2)  
 
-
 evalBO :: Model -> Obs Bool -> EvalM (PR Bool)
-evalBO model@(Model _ _ _ _ _ _ _ _ _) obsB = do
+evalBO model obsB = do
   st <- get
   case Map.lookup (KObsBool obsB) (cache st) of
     Just (VBool prB) -> return prB
@@ -252,4 +253,4 @@ evalBO model@(Model _ _ _ _ _ _ _ _ _) obsB = do
     eval' (Lift2B op o1 o2) = do
       po1 <- evalDO model o1
       po2 <- evalDO model o2
-      return (ModelUtils.lift2 (compareOpMap op) po1 po2)  
+      return (ModelUtils.lift2 (compareOpMap op) po1 po2)

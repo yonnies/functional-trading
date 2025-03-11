@@ -8,12 +8,12 @@
 - [x] test the functions with invalid contracts 
 - [x] custom value process print function
 - [x] implement optimisation layer
-- [ ] implement caching
+- [x] implement caching
 - [x] implement a contract that requires a Boolean obseravable
 - [ ] benchmark caching vs graphs
 - [ ] benchmark with without optimisation layer
 - [ ] create graphical representation of the value process
-- [ ] update eval error handling
+- [x] update eval error handling
 - [ ] write more quickCheck property tests 
 
 

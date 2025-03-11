@@ -92,13 +92,11 @@ inv1 = AcquireOn (date "06-11-2028") ((Scale (Konst 10) (One GBP)) `And` (Acquir
 
 inv2 = acquireOn (date "01-01-2026") (acquireOn (date "01-01-2025") ((one GBP) `Or` none))
 
-zcdb12 = acquireOn (date "01-11-2028") (scale (konst 1300) (one GBP)) 
-
 inv3 = european (date "01-03-2024") (Scale (StockPrice DIS) (One GBP)) 100 -- date is in the past
 
 inv4 = european (date "01-03-2025") (Scale (StockPrice DIS) (One BGN)) 100 -- inv currency
 
-inv5 = AcquireWhen (dateO (date "01-03-2023")) ((Scale (StockPrice DIS) (One GBP)))
+-- inv5 = AcquireWhen (dateO (date "01-03-2023")) ((Scale (StockPrice DIS) (One GBP)))
 
 
 -------------------------------------------------------
@@ -122,7 +120,7 @@ c1 = AcquireOn (date "01-02-2026") (Give (Or (Give (Give (One EUR))) None))
 
 c2 = AcquireOn (date "01-02-2030") (Give (And (Or (Or (One USD) (Or (One USD) None)) (AcquireOnBefore (date "01-07-2030") (Give None))) None))
 
-c3 = AcquireWhen (dateO (date "01-03-2025")) ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 100) (one GBP))) `Or` AcquireWhen (dateO (date "01-03-2025")) none 
+-- c3 = AcquireWhen (dateO (date "01-03-2025")) ((Scale (StockPrice DIS) (One GBP)) `And` give (scale (konst 100) (one GBP))) `Or` AcquireWhen (dateO (date "01-03-2025")) none 
 
 c4 = acquireOn (date "01-11-2028") (scale (konst 1300 + konst 400) (one GBP))
 
@@ -152,13 +150,64 @@ c13 = Scale (konst 2) c10 `or_`  Scale (konst 2) c11
 
 c14 = Scale (Konst (-2.6666666666666665)) (AcquireOn (date "25-12-2030") (Or (And (AcquireOnBefore (date "30-12-2030") (Give (One EUR))) (One GBP)) (One GBP)))
 
-c15 = acquireWhen (stockPrice TSLA %> 300) (scale (stockPrice TSLA) (one USD))
+c15 = acquireWhen (stockPrice NVDA %> 300) (scale (stockPrice TSLA) (one USD))
 
 -------------------------------------------------------
 -- Model specific functions
 -------------------------------------------------------
 
-datePrTest = datePr eModel (date "01-02-2025")
+-- datePrTest = datePr eModel (date "01-02-2025")
 
 stockModelTest = takeFailablePR 5 $ stockModel eModel DIS
 
+-- Define a function to evaluate a contract and print its result
+runTest :: String -> Contract -> IO ()
+runTest name contract = do
+    let result = eval eModel contract
+    putStrLn $ "Running test: " ++ name
+    case result of
+        Left err -> putStrLn $ "Error: " ++ err
+        Right val -> putStrLn $ "Result:\n" ++ show val
+    putStrLn "----------------------------"
+
+-- List of test cases with their names
+testCases :: [(String, Contract)]
+testCases =
+    [ ("zcdb1", zcdb1)
+    , ("zcdb2", zcdb2)
+    , ("european1", european1)
+    , ("european2", european2)
+    , ("european3", european3)
+    , ("american1", american1)
+    , ("american2", american2)
+    , ("american3", american3)
+    , ("inv1", inv1)
+    , ("inv2", inv2)
+    , ("inv3", inv3)
+    , ("inv4", inv4)
+    , ("testDoubleNegation", testDoubleNegation)
+    , ("testScalingOr", testScalingOr)
+    , ("testScalingOr2", testScalingOr2)
+    , ("c1", c1)
+    , ("c2", c2)
+    , ("c4", c4)
+    , ("c5", c5)
+    , ("c6", c6)
+    , ("c7", c7)
+    , ("c8", c8)
+    , ("c9", c9)
+    , ("c10", c10)
+    , ("c11", c11)
+    , ("c12", c12)
+    , ("c13", c13)
+    , ("c14", c14)
+    , ("c15", c15)
+    ]
+
+-- Run all tests
+runAllTests :: IO ()
+runAllTests = mapM_ (uncurry runTest) testCases
+
+-- Main function to execute tests when the script is run
+main :: IO ()
+main = runAllTests

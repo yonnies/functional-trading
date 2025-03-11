@@ -51,7 +51,7 @@ data Contract
 data Obs a where
     Konst       :: Double -> Obs Double             -- Observable whose value remains unchanged at any point in time
     StockPrice  :: Stock -> Obs Double    -- Observable that represents price of a stock in different points of time
-    DateO       :: Date -> Obs Bool
+    -- DateO       :: Date -> Obs Bool
     LiftD       :: UnaryOp -> Obs Double -> Obs Double
     Lift2D      :: BinaryOp -> Obs Double -> Obs Double -> Obs Double
     Lift2B      :: CompareOp -> Obs Double -> Obs Double -> Obs Bool
@@ -59,13 +59,6 @@ data Obs a where
 deriving instance Show a => Show (Obs a)
 deriving instance Eq a => Eq (Obs a)
 deriving instance Ord a => Ord (Obs a)
-
-(%<), (%<=), (%=), (%>=), (%>) :: Ord Double => Obs Double -> Obs Double -> Obs Bool
-o1 %> o2 = Lift2B CGT o1 o2
-o1 %>= o2 = Lift2B CGE o1 o2
-o1 %< o2 = Lift2B CLT o1 o2
-o1 %<= o2 = Lift2B CLE o1 o2
-o1 %= o2 = Lift2B CEQ o1 o2
 
 instance Num (Obs Double) where
   fromInteger = Konst . fromInteger
@@ -81,6 +74,12 @@ instance Fractional (Obs Double) where
   recip = error "recip not implemented for Obs Double"
   fromRational = error "fromRational not implemented for Obs Double"
 
+(%<), (%<=), (%=), (%>=), (%>) :: Ord Double => Obs Double -> Obs Double -> Obs Bool
+o1 %> o2 = Lift2B CGT o1 o2
+o1 %>= o2 = Lift2B CGE o1 o2
+o1 %< o2 = Lift2B CLT o1 o2
+o1 %<= o2 = Lift2B CLE o1 o2
+o1 %= o2 = Lift2B CEQ o1 o2
 
 -- Enumerated types for unary and binary numeric operations.
 -- These are needed because Haskell does not support Eq or Ord 
@@ -139,7 +138,6 @@ acquireOnBefore = AcquireOnBefore
 scale = Scale
 konst = Konst
 stockPrice = StockPrice
-dateO = DateO
 acquireWhen = AcquireWhen
 
 ----------------------------------------------------

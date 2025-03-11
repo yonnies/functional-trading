@@ -71,11 +71,11 @@ data Model = Model {
     stepSize        :: StepSize,
     constPr         :: Double -> PR Double,
     discDate        :: Date -> PR Double -> Either Error (PR Double),
-    discObs         :: PR Bool -> PR Double -> Either Error (PR Double),
+    discObs         :: Int -> PR Double -> Either Error (PR Double),
     snell           :: Date -> PR Double -> Either Error (PR Double),
     exchange        :: Currency -> Either Error (PR Double),
     stockModel      :: Stock -> Either Error (PR Double),
-    findHorizon     :: [ValSlice Bool] -> Int 
+    findHorizon     :: [ValSlice Bool] -> Int -> Either Error Int
     }
 
 type Error = String
@@ -99,7 +99,6 @@ exampleModel startDate stepSize = Model {
 
         constSlice :: Int -> a -> [ValSlice a]
         constSlice n x = replicate n x : constSlice (n+1) x
-
 
         -- for simplicity base currency is GBP
         exchange :: Currency -> Either Error (PR Double)
@@ -141,6 +140,20 @@ exampleModel startDate stepSize = Model {
         interest_rates :: LatticeModel Double
         interest_rates = _HLIRModel 0.05 0.01 (stepSizeD / 365)
 
+        discObs :: Int -> PR Double -> Either Error (PR Double)
+        discObs horizon pr = discount horizon pr
+
+        discDate :: Date -> PR Double -> Either Error (PR Double)
+        discDate d = discount ((daysBetween startDate d) `div` stepSize)               
+
+        findHorizon :: [ValSlice Bool] -> Int -> Either Error Int
+        findHorizon _ n
+            | n > 1500 = Left "Exceeded 1500 iterations in findHorizon!"
+        findHorizon [] _ = Left "Empty process or no stopping condition reached in findHorizon!"
+        findHorizon (bvs:bvss) n
+            | and bvs   = Right n
+            | otherwise = findHorizon bvss (n+1)
+
         discount :: Int -> PR Double -> Either Error (PR Double)
         discount lattice_depth (PR pr) = Right $ PR (discount' 1)
                 where 
@@ -154,28 +167,13 @@ exampleModel startDate stepSize = Model {
                             restSlices@(nextSlice:_) = discount' (t + 1) 
                             curSlice = (discountSlice (t) nextSlice)
 
-        discObs :: PR Bool -> PR Double -> Either Error (PR Double)
-        discObs (PR bpr) = discount (findHorizon bpr)
-
-        discDate :: Date -> PR Double -> Either Error (PR Double)
-        discDate d = discount ((daysBetween startDate d) `div` stepSize)
-            where
-                
-
-        findHorizon :: [ValSlice Bool] -> Int 
-        findHorizon [] = -1 
-        findHorizon (bvs:bvss)
-            | and bvs = 1
-            | otherwise = 1 + findHorizon bvss
-
-
         snell :: Date -> PR Double -> Either Error (PR Double)
         snell d (PR pr)
             | (daysBetween startDate d) <= 0 = Right $ constPr 0
             | otherwise = Right $ PR (snell' 1)
             where 
-                lattice_depth = ((daysBetween startDate d) `div` stepSize) + 1 -- 16     
-                underlying_process_len = length (take lattice_depth pr) -- 10
+                lattice_depth = ((daysBetween startDate d) `div` stepSize) + 1     
+                underlying_process_len = length (take lattice_depth pr) 
 
                 maxByAverage :: [Double] -> [Double] -> [Double]
                 maxByAverage xs ys
