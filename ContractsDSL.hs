@@ -49,18 +49,23 @@ data Contract
 ----------------------------- Observables -----------------------------
 
 data Obs a where
-    Konst :: Double -> Obs Double             -- Observable whose value remains unchanged at any point in time
-    StockPrice :: Stock -> Obs Double    -- Observable that represents price of a stock in different points of time
-    DateO :: Date -> Obs Bool
-    LiftD :: UnaryOp -> Obs Double -> Obs Double
-    Lift2D :: BinaryOp -> Obs Double -> Obs Double -> Obs Double
-    Dflt :: Date -> Obs Bool
-    -- LiftB :: (Bool -> Bool) -> Obs Bool -> Obs Bool
-    -- Lift2B ::(Bool -> Bool -> Bool) -> Obs Bool -> Obs Bool -> Obs Bool
+    Konst       :: Double -> Obs Double             -- Observable whose value remains unchanged at any point in time
+    StockPrice  :: Stock -> Obs Double    -- Observable that represents price of a stock in different points of time
+    DateO       :: Date -> Obs Bool
+    LiftD       :: UnaryOp -> Obs Double -> Obs Double
+    Lift2D      :: BinaryOp -> Obs Double -> Obs Double -> Obs Double
+    Lift2B      :: CompareOp -> Obs Double -> Obs Double -> Obs Bool
     
 deriving instance Show a => Show (Obs a)
 deriving instance Eq a => Eq (Obs a)
 deriving instance Ord a => Ord (Obs a)
+
+(%<), (%<=), (%=), (%>=), (%>) :: Ord Double => Obs Double -> Obs Double -> Obs Bool
+o1 %> o2 = Lift2B CGT o1 o2
+o1 %>= o2 = Lift2B CGE o1 o2
+o1 %< o2 = Lift2B CLT o1 o2
+o1 %<= o2 = Lift2B CLE o1 o2
+o1 %= o2 = Lift2B CEQ o1 o2
 
 instance Num (Obs Double) where
   fromInteger = Konst . fromInteger
@@ -94,6 +99,14 @@ data BinaryOp
   | BDiv      
   deriving (Eq, Show, Ord)
 
+data CompareOp
+  = CLT    -- less than
+  | CLE    -- less or equal
+  | CEQ    -- equals
+  | CGE    -- greater or equal
+  | CGT    -- greater
+  deriving (Eq, Show, Ord)
+
 
 unaryOpMap :: UnaryOp -> (Double -> Double)
 unaryOpMap UNegate = negate
@@ -106,6 +119,13 @@ binaryOpMap BSub = (-)
 binaryOpMap BMul = (*)
 binaryOpMap BDiv = (/)
 
+compareOpMap :: CompareOp -> (Double -> Double -> Bool)
+compareOpMap CLT = (<)
+compareOpMap CLE = (<=)
+compareOpMap CEQ = (==)
+compareOpMap CGE = (>=)
+compareOpMap CGT = (>)
+
 ----------------------------------------------------
 -- Lower case notation to prevent typo bugs 
 
@@ -115,6 +135,7 @@ give = Give
 and_ = And
 or_ = Or
 acquireOn = AcquireOn
+acquireOnBefore = AcquireOnBefore
 scale = Scale
 konst = Konst
 stockPrice = StockPrice
@@ -129,7 +150,3 @@ data Currency = GBP | USD | EUR | BGN
                               
 data Stock = DIS | TSLA | NVDA
     deriving (Eq, Show, Ord)
-
-
-
-

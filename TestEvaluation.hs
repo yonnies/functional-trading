@@ -152,6 +152,7 @@ c13 = Scale (konst 2) c10 `or_`  Scale (konst 2) c11
 
 c14 = Scale (Konst (-2.6666666666666665)) (AcquireOn (date "25-12-2030") (Or (And (AcquireOnBefore (date "30-12-2030") (Give (One EUR))) (One GBP)) (One GBP)))
 
+c15 = acquireWhen (stockPrice TSLA %> 300) (scale (stockPrice TSLA) (one USD))
 
 -------------------------------------------------------
 -- Model specific functions
@@ -160,3 +161,4 @@ c14 = Scale (Konst (-2.6666666666666665)) (AcquireOn (date "25-12-2030") (Or (An
 datePrTest = datePr eModel (date "01-02-2025")
 
 stockModelTest = takeFailablePR 5 $ stockModel eModel DIS
+

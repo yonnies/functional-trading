@@ -111,7 +111,7 @@ emptyEvalState = EvalState { cache = Map.empty }
 -- Top-level evaluation
 ---------------------------------------
 eval :: Model -> Contract -> Either String (PR Double)
-eval model@(Model startDate _ _ _ _ _ _ _ _ _) c = do
+eval model@(Model startDate _ _ _ _ _ _ _ _) c = do
   -- If typeCheck fails, we short-circuit with a Left.
   _ <- typeCheck c startDate
   let optC = optimiseContract c
@@ -124,7 +124,7 @@ eval model@(Model startDate _ _ _ _ _ _ _ _ _) c = do
 ----------------------------------------------------------------------------
 
 evalC :: Model -> Contract -> Date -> EvalM (PR Double)
-evalC model@(Model startDate stepSize constPr discDate discObs snell exchange _ _ findHorizon) contract earliestAcDate = do
+evalC model@(Model startDate stepSize constPr discDate discObs snell exchange _ findHorizon) contract earliestAcDate = do
   st <- get
   case Map.lookup (KContract contract) (cache st) of
     Just (VDouble cachedPR) -> return cachedPR
@@ -211,7 +211,7 @@ evalC model@(Model startDate stepSize constPr discDate discObs snell exchange _ 
 ----------------------------------------------------------------------------
 
 evalDO :: Model -> Obs Double -> EvalM (PR Double)
-evalDO model@(Model _ _ constPr _ _ _ _ stockModel _ _) obsD = do
+evalDO model@(Model _ _ constPr _ _ _ _ stockModel _) obsD = do
   st <- get
   case Map.lookup (KObsDouble obsD) (cache st) of
     Just (VDouble prD) -> return prD
@@ -237,7 +237,7 @@ evalDO model@(Model _ _ constPr _ _ _ _ stockModel _ _) obsD = do
 
 
 evalBO :: Model -> Obs Bool -> EvalM (PR Bool)
-evalBO model@(Model _ _ _ _ _ _ _ _ datePr _) obsB = do
+evalBO model@(Model _ _ _ _ _ _ _ _ _) obsB = do
   st <- get
   case Map.lookup (KObsBool obsB) (cache st) of
     Just (VBool prB) -> return prB
@@ -249,4 +249,7 @@ evalBO model@(Model _ _ _ _ _ _ _ _ datePr _) obsB = do
       return pr
   where
     eval' :: Obs Bool -> EvalM (PR Bool)
-    eval' (DateO d) = return (datePr d)
+    eval' (Lift2B op o1 o2) = do
+      po1 <- evalDO model o1
+      po2 <- evalDO model o2
+      return (ModelUtils.lift2 (compareOpMap op) po1 po2)  

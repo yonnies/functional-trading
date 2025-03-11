@@ -75,9 +75,7 @@ data Model = Model {
     snell           :: Date -> PR Double -> Either Error (PR Double),
     exchange        :: Currency -> Either Error (PR Double),
     stockModel      :: Stock -> Either Error (PR Double),
-    datePr          :: Date -> PR Bool,
     findHorizon     :: [ValSlice Bool] -> Int 
-    -- dfltPr          :: Date -> PR Bool
     }
 
 type Error = String
@@ -92,9 +90,7 @@ exampleModel startDate stepSize = Model {
     snell = snell,
     exchange = exchange,
     stockModel = stockModel,
-    datePr = datePr,
     findHorizon = findHorizon
-    -- dfltPr = dfltPr
     }
 
     where
@@ -103,16 +99,6 @@ exampleModel startDate stepSize = Model {
 
         constSlice :: Int -> a -> [ValSlice a]
         constSlice n x = replicate n x : constSlice (n+1) x
-
-        datePr :: Date -> PR Bool
-        datePr d = PR (datePr' 1)
-            where 
-                date_loc = ((daysBetween startDate d) `div` stepSize) + 1
-
-                datePr' :: Int -> [ValSlice Bool]
-                datePr' n 
-                    | n == date_loc = replicate n True : datePr' (n+1)
-                    | otherwise = replicate n False : datePr' (n+1)
 
 
         -- for simplicity base currency is GBP
@@ -232,8 +218,6 @@ exampleModel startDate stepSize = Model {
             where
                 up x = x + vol * sqrt time
                 down x = x - vol * sqrt time
-
-
 
 maximumValToday :: PR Double -> PR Double -> PR Double
 maximumValToday (PR (xs:xss)) (PR (ys:yss)) = if xs !! 0 > ys !! 0 then PR (xs:xss) else PR (ys:yss)
