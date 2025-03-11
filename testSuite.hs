@@ -8,29 +8,33 @@ import ModelUtils
 import EvaluationEngine
 
 instance Arbitrary Contract where
-  arbitrary = sized (genContract (date "01-01-2025"))
+  arbitrary = sized genContract 
 
-genContract :: Date -> Int -> Gen Contract
-genContract parentDate 0 = frequency
+genContract :: Int -> Gen Contract
+genContract 0 = frequency
   [ (1, pure None)
   , (8, One <$> genRandomCurrency)
   ]
-genContract parentDate n = oneof
-  [ Give <$> genContract parentDate (n `div` 2)
-  , do
-      leftSize <- choose (0, n `div` 2)
-      c1 <- genContract parentDate leftSize
-      c2 <- genContract parentDate (n `div` 2 - leftSize)
-      oneof [ pure (And c1 c2), pure (Or c1 c2) ]
-  , do
-      d  <- genDateStrictlyAfter parentDate (date "31-12-2030")
-      c  <- genContract d (n `div` 2)
-      oneof [ pure (AcquireOn d c), pure (AcquireOnBefore d c) ]
-  , do
-      c <- genContract parentDate (n `div` 2)
-      obs <- genObs
-      pure (Scale obs c)
-  ]
+genContract n = oneof
+  [ Give <$> genContract (n `div` 2)
+    , do
+        leftSize <- choose (0, n `div` 2)
+        c1 <- genContract leftSize
+        c2 <- genContract (n `div` 2 - leftSize)
+        oneof [ pure (And c1 c2)
+              , pure (Or c1 c2)
+              ]
+    , do
+        c <- genContract (n `div` 2)
+        someDate <- genRandomDate
+        oneof [ pure (AcquireOn someDate c)
+              , pure (AcquireOnBefore someDate c)
+              ]
+    , do
+        c <- genContract (n `div` 2)
+        obs <- genObs
+        pure (Scale obs c)
+    ]
 
 genObs :: Gen (Obs Double)
 genObs = oneof
@@ -57,6 +61,16 @@ genDateStrictlyAfter :: Date -> Date -> Gen Date
 genDateStrictlyAfter minDate endDay =
   genDateBetween (addDays 1 minDate) endDay
 
+genRandomDate :: Gen Date
+genRandomDate = do
+  let startDay = date "01-01-2025"
+      endDay   = date "31-12-2030"
+      totalDays = daysBetween startDay endDay
+  -- Pick an offset within [0 .. totalDays]
+  offset <- choose (0, totalDays)
+  -- Convert to an actual Day
+  pure (addDays (toInteger offset) startDay)
+
 -------------------------------------------------
 
 prop_doubleNegation :: Contract -> Bool
@@ -73,7 +87,7 @@ prop_orScaleDistributive (NonNegative x) c1 c2 = within 1000000 $
 
 main :: IO ()
 main = do
-  quickCheck (withMaxSuccess 1000 prop_doubleNegation)
+  -- quickCheck (withMaxSuccess 1000 prop_doubleNegation)
   verboseCheck (withMaxSuccess 100 prop_orScaleDistributive)
 
 

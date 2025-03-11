@@ -75,7 +75,8 @@ data Model = Model {
     snell           :: Date -> PR Double -> Either Error (PR Double),
     exchange        :: Currency -> Either Error (PR Double),
     stockModel      :: Stock -> Either Error (PR Double),
-    datePr          :: Date -> PR Bool
+    datePr          :: Date -> PR Bool,
+    findHorizon     :: [ValSlice Bool] -> Int 
     -- dfltPr          :: Date -> PR Bool
     }
 
@@ -91,7 +92,8 @@ exampleModel startDate stepSize = Model {
     snell = snell,
     exchange = exchange,
     stockModel = stockModel,
-    datePr = datePr
+    datePr = datePr,
+    findHorizon = findHorizon
     -- dfltPr = dfltPr
     }
 
@@ -154,41 +156,39 @@ exampleModel startDate stepSize = Model {
         interest_rates = _HLIRModel 0.05 0.01 (stepSizeD / 365)
 
         discount :: Int -> PR Double -> Either Error (PR Double)
-        discount lattice_depth (PR pr)
-            | lattice_depth < 0 = Left "Contract acquisition has been specified to an earlier date than model start date"
-            | lattice_depth > length (take lattice_depth pr) = Left "Lattice depth exceeds PR slices in discount"
-            | lattice_depth == 0 = Right $ PR ([pr !! 0])
-            | otherwise = Right $ PR (discount' 1)
-            where
+        discount lattice_depth (PR pr) = Right $ PR (discount' 1)
+                where 
+                underlying_process_len = length (take lattice_depth pr)
+                    
                 discount' :: TimeStep -> [ValSlice Double]
                 discount' t 
-                    | t == lattice_depth + 1 = [pr !! lattice_depth]       
+                    | t >= lattice_depth + 1 = [pr !! lattice_depth]       
                     | otherwise = curSlice : restSlices 
                         where 
                             restSlices@(nextSlice:_) = discount' (t + 1) 
-                            curSlice = (discountSlice (t+1) nextSlice)
+                            curSlice = (discountSlice (t) nextSlice)
 
         discObs :: PR Bool -> PR Double -> Either Error (PR Double)
-        discObs (PR bpr) = discount (findHorizon bpr 0)
+        discObs (PR bpr) = discount (findHorizon bpr)
 
         discDate :: Date -> PR Double -> Either Error (PR Double)
         discDate d = discount ((daysBetween startDate d) `div` stepSize)
+            where
+                
 
-        findHorizon :: [ValSlice Bool] -> Int -> Int
-        findHorizon [] _ = -1 
-        findHorizon (bvs:bvss) n
-            | and bvs = n
-            | otherwise = findHorizon bvss (n+1)
+        findHorizon :: [ValSlice Bool] -> Int 
+        findHorizon [] = -1 
+        findHorizon (bvs:bvss)
+            | and bvs = 1
+            | otherwise = 1 + findHorizon bvss
 
-    
+
         snell :: Date -> PR Double -> Either Error (PR Double)
-        snell d (PR pr) 
-            | lattice_depth < 0 = Left "Contract acquisition has been specified to an earlier date than model start date"
-            | lattice_depth == 0 = Right $ PR ([pr !! 0])
+        snell d (PR pr)
+            | (daysBetween startDate d) <= 0 = Right $ constPr 0
             | otherwise = Right $ PR (snell' 1)
             where 
-
-                lattice_depth = ((daysBetween startDate d) `div` stepSize) -- 16     
+                lattice_depth = ((daysBetween startDate d) `div` stepSize) + 1 -- 16     
                 underlying_process_len = length (take lattice_depth pr) -- 10
 
                 maxByAverage :: [Double] -> [Double] -> [Double]
@@ -200,20 +200,21 @@ exampleModel startDate stepSize = Model {
 
                 snell' :: TimeStep -> [ValSlice Double]
                 snell' t 
-                    | t == underlying_process_len + 1 && t == lattice_depth + 1 = [pr !! lattice_depth]
-                    | t > underlying_process_len && t <= lattice_depth = (replicate t 0) : snell' (t+1)
-                    | t > lattice_depth = [replicate t 0]
-                    | otherwise = curSlice : restSlices 
+                    | t == underlying_process_len && t == lattice_depth = [pr !! (underlying_process_len - 1)]
+                    | t == underlying_process_len && t < lattice_depth = (pr !! (underlying_process_len - 1)) : snell' (t+1)
+                    | t > underlying_process_len && t < lattice_depth = (replicate (t+1) 0) : snell' (t+1)
+                    | t == lattice_depth = [replicate (t+1) 0]
+                    | otherwise = curSlice : snell' (t+1)
                         where 
                             restSlices@(nextSlice:_) = snell' (t + 1) 
-                            curSlice = maxByAverage (discountSlice (t+1) nextSlice) (pr !! (t-1))
+                            curSlice = maxByAverage (discountSlice (t) nextSlice) (pr !! (t-1))
 
 
         discountSlice :: TimeStep -> ValSlice Double -> ValSlice Double
         discountSlice t prevSlice =  
             [(prev_val1 + prev_val2) / (2 * (1 + ir)) | (ir, (prev_val1, prev_val2)) <- zip irs pairs]
                 where   pairs = zip (tail prevSlice) (init prevSlice)
-                        irs = interest_rates !! (t - 1)         
+                        irs = interest_rates !! (t)         
                 
         stepSizeD :: Double
         stepSizeD = fromIntegral stepSize
