@@ -16,27 +16,29 @@ import qualified Data.Map.Strict as Map
 
 ------------------------- Type-checker -------------------------
 
--- Now we only return Either Error (), so we never rebuild the contract.
 typeCheck :: Contract -> Date -> Either Error ()
-typeCheck None d
-  | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
-  | otherwise = Right ()
-typeCheck (One cur) d
-  | d == infiniteHorizon = Left "Error: Contract has no acquisition date set."
-  | otherwise = Right ()
+typeCheck None d = Left "Error: Contract has no acquisition date set."
+typeCheck (One cur) d = Left "Error: Contract has no acquisition date set."
 typeCheck (Give c) d = do
   typeCheck c d
 typeCheck (And c1 c2) d = do
   typeCheck c1 d
   typeCheck c2 d
 typeCheck (Or c1 c2) d = do
+  -- check for error in either here
+  -- if both have an error throw an error
+  -- if only one has an error return just the contract without the error
   typeCheck c1 d
   typeCheck c2 d
 typeCheck (Scale obs c) d =
   typeCheck c d
-typeCheck (AcquireOn d2 c) d1 = Right ()
+typeCheck (AcquireOn d2 c) d1 
+  | d2 < d1 = Left "Error: Top level contract with an expiry earlier than the model start date is prohibited."
+  | otherwise = Right ()
 typeCheck (AcquireWhen obs c) d1 = Right ()
-typeCheck (AcquireOnBefore d2 c) d1 = Right ()
+typeCheck (AcquireOnBefore d2 c) d1 
+  | d2 < d1 = Left "Error: Top level contract with an expiry earlier than the model start date is prohibited."
+  | otherwise = Right ()
 
 ------------------------- Optimisation layer -------------------------
 
@@ -111,7 +113,7 @@ emptyEvalState = EvalState { cache = Map.empty }
 eval :: Model -> Contract -> Either String (PR Double)
 eval model@(Model startDate _ _ _ _ _ _ _ _ _) c = do
   -- If typeCheck fails, we short-circuit with a Left.
-  _ <- typeCheck c infiniteHorizon
+  _ <- typeCheck c startDate
   let optC = optimiseContract c
   -- Run our StateT-based evaluator with an empty cache:
   (result, _finalState) <- runStateT (evalC model optC startDate) emptyEvalState
