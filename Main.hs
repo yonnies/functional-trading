@@ -92,6 +92,33 @@ genRandomDate = do
   pure (addDays (toInteger offset) startDay)
 
 ----------------------------------------------------------------
+-- Approximate equality checks for contract evaluation
+----------------------------------------------------------------
+
+-- prApproxEq checks if two PR (value process) results are approximately equal.
+-- Since PR values are lists of lists (representing binomial trees), we compare
+-- them element-wise with a given epsilon tolerance.
+prApproxEq :: Double -> PR Double -> PR Double -> Bool
+prApproxEq epsilon (PR xs) (PR ys) = and $ zipWith eqLayers xs ys
+  where
+    eqLayers as bs = and $ zipWith (\a b -> abs (a - b) < epsilon) as bs
+
+-- Custom equality operator for comparing evaluated contracts.
+(≈) :: Either Error (PR Double) -> Either Error (PR Double) -> Property
+a ≈ b = case (a, b) of
+    (Right pr1, Right pr2) -> 
+        counterexample (printf "Expected:\n%s\nActual:\n%s" 
+                        (show pr2) (show pr1)) $
+        property (prApproxEq 1e-6 pr1 pr2)
+    (Left err1, Left err2) -> 
+        counterexample (printf "Both failed with errors:\n%s\n%s" err1 err2) True
+    (Left err1, Right _) -> 
+        counterexample ("Mismatch: First failed with error: " ++ err1) False
+    (Right _, Left err2) -> 
+        counterexample ("Mismatch: Second failed with error: " ++ err2) False
+
+
+----------------------------------------------------------------
 -- QuickCheck properties
 ----------------------------------------------------------------
 
@@ -152,58 +179,87 @@ prop_or_max c1 c2 =
     model = exampleModel today 30
 
 ----------------------------------------------------------------
--- HUnit tests
+-- Basic HUnit tests
 ----------------------------------------------------------------
 
--- Ensure the binomial lattice structure is correct
 unit_test_PR_structure :: Assertion
 unit_test_PR_structure = 
-  let model = exampleModel today 30
+  let model  = exampleModel today 30
       result = eval model (AcquireOn (date "20-04-2025") (One GBP))
-   in case result of
-        Left err  -> assertFailure ("eval returned Left: " ++ err)
-        Right (PR layers) -> length (layers !! 3) @?= 4
+  in case result of
+       Left err ->
+         assertFailure ("eval returned Left: " ++ err)
+       Right (PR layers) ->
+         length (layers !! 3) @?= 4
 
--- Acquiring a contract at the start date should match exchange rate
 unit_test_acquireOnStartDate :: Assertion
 unit_test_acquireOnStartDate = 
   let model        = exampleModel today 30
-      left         = eval model (AcquireOn (startDate model) (One USD))
-      right        = exchange model USD
-  in case (left, right) of
-       (Left err, _) -> assertFailure ("Left error in left side: " ++ err)
-       (_, Left err)  -> assertFailure ("Left error in right side: " ++ err)
-       (Right prL, Right prR) -> 
-           let eps = 1e-6
-               same = prApproxEq eps prL prR
-           in assertBool ("Mismatch in PRs!\nLeft:\n" ++ show prL ++ 
-                          "\nRight:\n" ++ show prR) same
+      leftE        = eval model (AcquireOn (startDate model) (One USD))
+      rightE       = exchange model USD
+  in assertPRApproxEqual "AcquireOnStartDate" leftE rightE
 
 ----------------------------------------------------------------
--- Approximate equality checks for contract evaluation
+-- HUnit tests for european contracts
 ----------------------------------------------------------------
 
--- prApproxEq checks if two PR (value process) results are approximately equal.
--- Since PR values are lists of lists (representing binomial trees), we compare
--- them element-wise with a given epsilon tolerance.
-prApproxEq :: Double -> PR Double -> PR Double -> Bool
-prApproxEq epsilon (PR xs) (PR ys) = and $ zipWith eqLayers xs ys
-  where
-    eqLayers as bs = and $ zipWith (\a b -> abs (a - b) < epsilon) as bs
+european :: Date -> Contract -> Double -> Contract
+european t underlying strikePrice = 
+  AcquireOn t (underlying `And` Give (Scale (Konst strikePrice) (One GBP))) 
+    `Or` AcquireOn t None 
 
--- Custom equality operator for comparing evaluated contracts.
-(≈) :: Either Error (PR Double) -> Either Error (PR Double) -> Property
-a ≈ b = case (a, b) of
-    (Right pr1, Right pr2) -> 
-        counterexample (printf "Expected:\n%s\nActual:\n%s" 
-                        (show pr2) (show pr1)) $
-        property (prApproxEq 1e-6 pr1 pr2)
-    (Left err1, Left err2) -> 
-        counterexample (printf "Both failed with errors:\n%s\n%s" err1 err2) True
-    (Left err1, Right _) -> 
-        counterexample ("Mismatch: First failed with error: " ++ err1) False
-    (Right _, Left err2) -> 
-        counterexample ("Mismatch: Second failed with error: " ++ err2) False
+unit_test_profitable_european :: Assertion
+unit_test_profitable_european = 
+  let model      = exampleModel today 30
+      contract   = european (date "01-03-2025") (Scale (StockPrice DIS) (One GBP)) 100
+      underlying = AcquireOn (date "01-03-2025") ((Scale (StockPrice DIS) (One GBP)) `And` Give (Scale (Konst 100) (One GBP)))
+      leftE  = eval model contract
+      rightE = eval model underlying
+  in assertPRApproxEqual "ProfitableEuropean" leftE rightE
+
+unit_test_unprofitable_european :: Assertion
+unit_test_unprofitable_european = 
+  let model      = exampleModel today 30
+      contract   = european (date "01-03-2025") 
+                            (Scale (StockPrice DIS) (One GBP)) 
+                            120
+      underlying = AcquireOn (date "01-03-2025") None
+      leftE  = eval model contract
+      rightE = eval model underlying
+  in assertPRApproxEqual "UnprofitableEuropean" leftE rightE
+
+
+----------------------------------------------------------------
+-- Generic helper to compare two evaluated contracts in HUnit
+----------------------------------------------------------------
+
+-- Compares two Either Error (PR Double) results within an Assertion.
+-- If both are Right, it does a numeric approximate check.
+-- If one or both are Left, it shows an error message.
+assertPRApproxEqual 
+  :: String                      -- Label or test name
+  -> Either Error (PR Double)    -- Left-hand evaluation
+  -> Either Error (PR Double)    -- Right-hand evaluation
+  -> Assertion
+assertPRApproxEqual testName leftE rightE =
+  case (leftE, rightE) of
+    (Left errL, _) ->
+      assertFailure (testName ++ ": Left side failed: " ++ errL)
+
+    (_, Left errR) ->
+      assertFailure (testName ++ ": Right side failed: " ++ errR)
+
+    (Right prL, Right prR) ->
+      let eps  = 1e-6
+          same = prApproxEq eps prL prR
+      in assertBool
+           (  testName 
+           ++ " mismatch:\nLeft:\n"     ++ show prL
+           ++ "\nRight:\n"             ++ show prR 
+           )
+           same
+
+
 
 ----------------------------------------------------------------
 -- Running all tests
@@ -224,6 +280,7 @@ main = defaultMain $ testGroup "All Tests"
   , testGroup "HUnit tests"
       [ testCase "test_PR_structure"         unit_test_PR_structure
       , testCase "test_acquireOnStartDate"   unit_test_acquireOnStartDate
+      , testCase "test_profitable_european"   unit_test_profitable_european
       ]
   ]
 
