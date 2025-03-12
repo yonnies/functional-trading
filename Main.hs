@@ -29,20 +29,20 @@ genContract 0 = frequency
   ]
 genContract n = oneof
   [ Give <$> genContract (n `div` 2)
-  , do  -- Generate And/Or combinations of contracts
+  , do
       leftSize <- choose (0, n `div` 2)
       c1 <- genContract leftSize
       c2 <- genContract (n `div` 2 - leftSize)
       oneof [ pure (And c1 c2), pure (Or c1 c2) ]
-  , do  -- Generate AcquireOn and AcquireOnBefore contracts
+  , do
       c <- genContract (n `div` 2)
       someDate <- genRandomDate
       oneof [ pure (AcquireOn someDate c), pure (AcquireOnBefore someDate c) ]
-  , do  -- Generate scaled contracts
+  , do
       c <- genContract (n `div` 2)
       obs <- genObsDouble
       pure (Scale obs c)
-  , do  -- Generate contracts that acquire when a condition is met
+  , do
       c <- genContract (n `div` 2)
       obs <- genObsBool
       pure (AcquireWhen obs c)
@@ -314,24 +314,24 @@ assertPRApproxEqual testName leftE rightE =
 main :: IO ()
 main = defaultMain $ testGroup "All Tests"
   [ testGroup "Structural (no eval needed)"
-      [ testProperty "doubleNegation"        prop_doubleNegation
-      , testProperty "optimiseIdempotent"    prop_optimise_idempotent
+      [ testProperty "doubleNegation"         prop_doubleNegation
+      , testProperty "optimiseIdempotent"     prop_optimise_idempotent
       ]
   , testGroup "Valuation properties"
-      [ testProperty "orScaleDistributive"   prop_orScaleDistributive
-      , testProperty "giveNegates"           prop_give_negates
-      , testProperty "andAdds"               prop_and_adds
-      , testProperty "orMax"                 prop_or_max
+      [ testProperty "orScaleDistributive"    prop_orScaleDistributive
+      , testProperty "giveNegates"            prop_give_negates
+      , testProperty "andAdds"                prop_and_adds
+      , testProperty "orMax"                  prop_or_max
       ]
   , testGroup "HUnit tests"
-      [ testCase "test_PR_structure"         unit_test_PR_structure
-      , testCase "test_acquireOnStartDate"   unit_test_acquireOnStartDate
-      , testCase "test_profitable_european"  unit_test_profitable_european
-      , testCase "test_unprofitable_european"  unit_test_unprofitable_european
-      , testCase "test_profitable_american"  unit_test_profitable_american
-      , testCase "test_unprofitable_american"  unit_test_unprofitable_american
+      [ testCase "test_PR_structure"          unit_test_PR_structure
+      , testCase "test_acquireOnStartDate"    unit_test_acquireOnStartDate
+      , testCase "test_profitable_european"   unit_test_profitable_european
+      , testCase "test_unprofitable_european" unit_test_unprofitable_european
+      , testCase "test_profitable_american"   unit_test_profitable_american
+      , testCase "test_unprofitable_american" unit_test_unprofitable_american
       , testCase "test_expired_c_acquisition" unit_test_expired_c_acquisition
-      , testCase "unit_test_unsupported_currency" unit_test_unsupported_currency
+      , testCase "test_unsupported_currency"  unit_test_unsupported_currency
       ]
   ]
 

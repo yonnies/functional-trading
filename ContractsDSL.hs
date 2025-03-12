@@ -50,7 +50,7 @@ data Contract
 ----------------------------- Observables -----------------------------
 
 data Obs a where
-    Konst       :: Double -> Obs Double             -- Observable whose value remains unchanged at any point in time
+    Konst       :: Double -> Obs Double   -- Observable whose value remains unchanged at any point in time
     StockPrice  :: Stock -> Obs Double    -- Observable that represents price of a stock in different points of time
     -- DateO       :: Date -> Obs Bool
     LiftD       :: UnaryOp -> Obs Double -> Obs Double

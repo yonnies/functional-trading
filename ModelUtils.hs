@@ -104,7 +104,7 @@ exampleModel start step = Model {
         constSlice :: Int -> a -> [ValSlice a]
         constSlice n x = replicate n x : constSlice (n+1) x
 
-        -- for simplicity base currency is GBP
+        -- For simplicity base currency is GBP
         exchange' :: Currency -> Either Error (PR Double)
         exchange' cur = 
             case lookup cur exchangeRates of 
@@ -161,8 +161,6 @@ exampleModel start step = Model {
         discount :: Int -> PR Double -> Either Error (PR Double)
         discount lattice_depth (PR pr) = Right $ PR (discount' 1)
                 where 
-                -- underlying_process_len = length (take lattice_depth pr)
-                    
                 discount' :: TimeStep -> [ValSlice Double]
                 discount' t 
                     | t >= lattice_depth + 1 = [pr !! lattice_depth]       
@@ -209,14 +207,14 @@ exampleModel start step = Model {
         stepSizeD :: Double
         stepSizeD = fromIntegral step
 
-        -- for exchange rates and stock prices 
+        -- For exchange rates and stock prices 
         _CCRModel :: Double -> Double -> Double -> LatticeModel Double
         _CCRModel initVal vol time = initLatticeModel [initVal] up down
             where
                 up x = x * exp (vol * sqrt time)
                 down x = x * exp (-vol * sqrt time)
 
-        -- for interest rates
+        -- For interest rates
         _HLIRModel :: Double -> Double -> Double -> LatticeModel Double
         _HLIRModel initVal vol time = initLatticeModel [initVal] up down
             where

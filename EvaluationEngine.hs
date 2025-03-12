@@ -13,7 +13,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 
-------------------------- Type-checker -------------------------
+---------------------------- Type-checker ----------------------------
 
 typeCheck :: Contract -> Date -> Either Error ()
 typeCheck None _ = Left "Error: Contract has no acquisition date set."
@@ -42,43 +42,33 @@ typeCheck (AcquireOnBefore d2 _) d1
 ------------------------- Optimisation layer -------------------------
 
 optimiseContract :: Contract -> Contract
-optimiseContract c =
-  case c of
-
+optimiseContract c = case c of
     AcquireOn d sub ->
-      let sub' = optimiseContract sub  -- Recurse first
-       in -- Now see if AcquireOn+sub' can be simplified further
+      let sub' = optimiseContract sub 
+       in 
           case sub' of
             AcquireOn d2 c2
               | d <= d2  -> AcquireOn d (optimiseContract c2)
               | d > d2 -> AcquireOn d (None) 
-
-            -- or any other AcquireOn rewrite
             _ -> AcquireOn d sub'
-
     AcquireOnBefore d sub ->
       let sub' = optimiseContract sub
-       in AcquireOnBefore d sub'    -- plus any custom logic
-
+       in AcquireOnBefore d sub'
     AcquireWhen obs sub ->
       let sub' = optimiseContract sub
        in AcquireWhen obs sub'
-
     Give sub ->
       let sub' = optimiseContract sub
        in case sub' of
             None -> None
             (Give c') -> optimiseContract c'
             _    -> Give sub'
-
     Or c1 c2 ->
       let c1' = optimiseContract c1
           c2' = optimiseContract c2
        in if c1' == c2'
              then c1'
              else Or c1' c2'
-      -- plus your special "Scale (Konst k)" rules, etc.
-
     And c1 c2 ->
       let c1' = optimiseContract c1
           c2' = optimiseContract c2
@@ -86,13 +76,10 @@ optimiseContract c =
             (None, x) -> x
             (x, None) -> x
             _         -> And c1' c2'
-
     Scale obs sub ->
       let sub' = optimiseContract sub
-       in -- If sub' is (Scale obs2 c2), combine them, etc.
+       in 
           Scale obs sub'
-
-    -- Base cases
     None      -> None
     One cur   -> One cur
 
@@ -213,7 +200,7 @@ evalC model contract earliestAcDate = do
       return (obsPR * cVal)
 
 ----------------------------------------------------------------------------
--- Memoized evaluation of an observable (Updated to use accessors)
+-- Memoized evaluation of an observable
 ----------------------------------------------------------------------------
 
 evalDO :: Model -> Obs Double -> EvalM (PR Double)
