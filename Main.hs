@@ -200,13 +200,13 @@ unit_test_acquireOnStartDate =
   in assertPRApproxEqual "AcquireOnStartDate" leftE rightE
 
 ----------------------------------------------------------------
--- HUnit tests for european contracts
+-- HUnit tests for optiona
 ----------------------------------------------------------------
 
 european :: Date -> Contract -> Double -> Contract
 european t underlying strikePrice = 
   AcquireOn t (underlying `And` Give (Scale (Konst strikePrice) (One GBP))) 
-    `Or` AcquireOn t None 
+  `Or` AcquireOn t None 
 
 unit_test_profitable_european :: Assertion
 unit_test_profitable_european = 
@@ -222,12 +222,36 @@ unit_test_unprofitable_european =
   let model      = exampleModel today 30
       contract   = european (date "01-03-2025") 
                             (Scale (StockPrice DIS) (One GBP)) 
-                            120
+                            130
       underlying = AcquireOn (date "01-03-2025") None
       leftE  = eval model contract
       rightE = eval model underlying
   in assertPRApproxEqual "UnprofitableEuropean" leftE rightE
 
+american :: Date -> Contract -> Double -> Contract
+american t underlying strikePrice = 
+  AcquireOnBefore t (underlying `And` Give (Scale (Konst strikePrice) (One GBP))) 
+  `Or` AcquireOnBefore t None
+
+unit_test_profitable_american :: Assertion
+unit_test_profitable_american = 
+  let model      = exampleModel today 30
+      contract   = american (date "01-03-2025") (Scale (StockPrice DIS) (One GBP)) 100 
+      underlying = AcquireOnBefore (date "01-03-2025") ((Scale (StockPrice DIS) (One GBP)) `And` Give (Scale (Konst 100) (One GBP)))
+      leftE  = eval model contract
+      rightE = eval model underlying
+  in assertPRApproxEqual "ProfitableAmerican" leftE rightE
+
+unit_test_unprofitable_american :: Assertion
+unit_test_unprofitable_american = 
+  let model      = exampleModel today 30
+      contract   = american (date "05-02-2025") 
+                            (Scale (StockPrice DIS) (One GBP)) 
+                            120
+      underlying = AcquireOn (date "05-02-2025") None
+      leftE  = eval model contract
+      rightE = eval model underlying
+  in assertPRApproxEqual "UnprofitableAmerican" leftE rightE
 
 ----------------------------------------------------------------
 -- Generic helper to compare two evaluated contracts in HUnit
@@ -280,7 +304,10 @@ main = defaultMain $ testGroup "All Tests"
   , testGroup "HUnit tests"
       [ testCase "test_PR_structure"         unit_test_PR_structure
       , testCase "test_acquireOnStartDate"   unit_test_acquireOnStartDate
-      , testCase "test_profitable_european"   unit_test_profitable_european
+      , testCase "test_profitable_european"  unit_test_profitable_european
+      , testCase "test_unprofitable_european"  unit_test_unprofitable_european
+      , testCase "test_profitable_american"  unit_test_profitable_american
+      , testCase "test_unprofitable_american"  unit_test_unprofitable_american
       ]
   ]
 
