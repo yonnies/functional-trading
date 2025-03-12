@@ -3,10 +3,11 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module ContractsDSL where 
 
-import Data.Time (Day, parseTimeM, defaultTimeLocale, diffDays, addDays)
+import Data.Time (Day, parseTimeM, defaultTimeLocale, diffDays)
 
 --------------------------- Time and dates ---------------------------
 
@@ -128,17 +129,17 @@ compareOpMap CGT = (>)
 ----------------------------------------------------
 -- Lower case notation to prevent typo bugs 
 
-none = None
-one = One
-give = Give
-and_ = And
-or_ = Or
-acquireOn = AcquireOn
-acquireOnBefore = AcquireOnBefore
-scale = Scale
-konst = Konst
-stockPrice = StockPrice
-acquireWhen = AcquireWhen
+-- none = None
+-- one = One
+-- give = Give
+-- and_ = And
+-- or_ = Or
+-- acquireOn = AcquireOn
+-- acquireOnBefore = AcquireOnBefore
+-- scale = Scale
+-- konst = Konst
+-- stockPrice = StockPrice
+-- acquireWhen = AcquireWhen
 
 ----------------------------------------------------
 -- Supported Currencies & Stocks 

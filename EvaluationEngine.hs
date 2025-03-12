@@ -9,7 +9,6 @@ module EvaluationEngine where
 import ContractsDSL
 import ModelUtils
 
-import Data.Time (addDays)
 import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
@@ -17,8 +16,8 @@ import qualified Data.Map.Strict as Map
 ------------------------- Type-checker -------------------------
 
 typeCheck :: Contract -> Date -> Either Error ()
-typeCheck None d = Left "Error: Contract has no acquisition date set."
-typeCheck (One cur) d = Left "Error: Contract has no acquisition date set."
+typeCheck None _ = Left "Error: Contract has no acquisition date set."
+typeCheck (One _) _ = Left "Error: Contract has no acquisition date set."
 typeCheck (Give c) d = do
   typeCheck c d
 typeCheck (And c1 c2) d = do
@@ -30,52 +29,73 @@ typeCheck (Or c1 c2) d = do
   -- if only one has an error return just the contract without the error
   typeCheck c1 d
   typeCheck c2 d
-typeCheck (Scale obs c) d =
+typeCheck (Scale _ c) d =
   typeCheck c d
-typeCheck (AcquireOn d2 c) d1 
+typeCheck (AcquireOn d2 _) d1 
   | d2 < d1 = Left "Error: Top level contract with an expiry earlier than the model start date is prohibited."
   | otherwise = Right ()
-typeCheck (AcquireWhen obs c) d1 = Right ()
-typeCheck (AcquireOnBefore d2 c) d1 
+typeCheck (AcquireWhen _ _) _ = Right ()
+typeCheck (AcquireOnBefore d2 _) d1 
   | d2 < d1 = Left "Error: Top level contract with an expiry earlier than the model start date is prohibited."
   | otherwise = Right ()
 
 ------------------------- Optimisation layer -------------------------
 
 optimiseContract :: Contract -> Contract
--- Double negation: give (give c) = c
-optimiseContract (Give (Give c)) = optimiseContract c
-optimiseContract (Give c)
-    | c == None = optimiseContract c
-    | otherwise = Give (optimiseContract c)
+optimiseContract c =
+  case c of
 
--- Avoiding double scale computation
-optimiseContract (Or (Scale obs1 c1) (Scale obs2 c2))  
-    | Konst k <- obs1, Konst j <- obs2, k == j, k >= 0 = Scale obs1 (optimiseContract (Or c1 c2))
-    | otherwise = Or (Scale obs1 (optimiseContract c1)) (Scale obs2 (optimiseContract c2))
-optimiseContract (Or c1 c2) 
-    | c1 == c2 = c1
-    | otherwise = Or (optimiseContract c1) (optimiseContract c2)
+    AcquireOn d sub ->
+      let sub' = optimiseContract sub  -- Recurse first
+       in -- Now see if AcquireOn+sub' can be simplified further
+          case sub' of
+            AcquireOn d2 c2
+              | d <= d2  -> AcquireOn d (optimiseContract c2)
+              | d > d2 -> AcquireOn d (None) 
 
-optimiseContract (And c1 c2)  
-    | c1 == None = optimiseContract c2  -- Remove unnecessary None
-    | c2 == None = optimiseContract c1
-    | otherwise  = And (optimiseContract c1) (optimiseContract c2)
+            -- or any other AcquireOn rewrite
+            _ -> AcquireOn d sub'
 
-optimiseContract (Scale obs c) = Scale obs (optimiseContract c)
+    AcquireOnBefore d sub ->
+      let sub' = optimiseContract sub
+       in AcquireOnBefore d sub'    -- plus any custom logic
 
--- Nested acquire on:
-optimiseContract (AcquireOn d1 (AcquireOn d2 c))  
-    | d1 <= d2   = AcquireOn d1 (optimiseContract c)
-    | otherwise = AcquireOn d1 (optimiseContract (AcquireOn d2 c))
-optimiseContract (AcquireOn d c) = AcquireOn d (optimiseContract c)
+    AcquireWhen obs sub ->
+      let sub' = optimiseContract sub
+       in AcquireWhen obs sub'
 
-optimiseContract (AcquireOnBefore d c) = AcquireOnBefore d (optimiseContract c)
+    Give sub ->
+      let sub' = optimiseContract sub
+       in case sub' of
+            None -> None
+            (Give c') -> optimiseContract c'
+            _    -> Give sub'
 
-optimiseContract (AcquireWhen obs c) = AcquireWhen obs (optimiseContract c)
+    Or c1 c2 ->
+      let c1' = optimiseContract c1
+          c2' = optimiseContract c2
+       in if c1' == c2'
+             then c1'
+             else Or c1' c2'
+      -- plus your special "Scale (Konst k)" rules, etc.
 
--- Base cases: None, One, etc., are already in simplest form
-optimiseContract contract = contract
+    And c1 c2 ->
+      let c1' = optimiseContract c1
+          c2' = optimiseContract c2
+       in case (c1', c2') of
+            (None, x) -> x
+            (x, None) -> x
+            _         -> And c1' c2'
+
+    Scale obs sub ->
+      let sub' = optimiseContract sub
+       in -- If sub' is (Scale obs2 c2), combine them, etc.
+          Scale obs sub'
+
+    -- Base cases
+    None      -> None
+    One cur   -> One cur
+
 
 ----------------------------- Evaluation -----------------------------
 
@@ -163,36 +183,20 @@ evalC model contract earliestAcDate = do
         return (maximumValToday pr1 pr2)
 
     eval' (AcquireOn d2 c) d1 = do
-      let dist = abs (daysBetween d1 d2)
-      let step = stepSize model
-      if dist < step
-        then throwError $
-            "For accurate model predictions, the number of days ("
-            ++ show dist ++ ") between " ++ show d1 ++ " and " ++ show d2
-            ++ " should be larger than the model step size of " ++ show step
-            ++ ". Use a model with a smaller step size."
-        else if d2 < d1
-          then return (constPr model 0)
-          else do
-            cVal  <- evalC model c d2
-            pr    <- liftEither (discDate model d2 cVal)
-            return pr
+      if d2 < d1
+        then return (constPr model 0)
+        else do
+          cVal  <- evalC model c d2
+          pr    <- liftEither (discDate model d2 cVal)
+          return pr
 
     eval' (AcquireOnBefore d2 c) d1 = do
-      let dist = abs (daysBetween d1 d2)
-      let step = stepSize model
-      if dist < step
-        then throwError $
-            "For accurate model predictions, the number of days ("
-            ++ show dist ++ ") between " ++ show d1 ++ " and " ++ show d2
-            ++ " should be larger than the model step size of " ++ show step
-            ++ ". Use a model with a smaller step size."
-        else if d2 < d1
-          then return (constPr model 0)
-          else do
-            cVal <- evalC model c (startDate model)
-            pr   <- liftEither (snell model d2 cVal)
-            return pr
+      if d2 < d1
+        then return (constPr model 0)
+        else do
+          cVal <- evalC model c (startDate model)
+          pr   <- liftEither (snell model d2 cVal)
+          return pr
 
     eval' (AcquireWhen obs c) d = do
       (PR obsPR) <- evalBO model obs

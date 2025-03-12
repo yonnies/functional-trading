@@ -1,3 +1,7 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+
 module ModelUtils where
 
 import Control.DeepSeq (NFData(..))
@@ -21,7 +25,7 @@ instance (Show a) => Show (PR a) where
         showVal :: (Show a) => a -> String
         showVal x =
             case castToDouble x of
-                Just (y :: Double) -> show (fromIntegral (round (y * 100)) / 100)  -- Round numbers
+                Just (y :: Double) -> show (fromIntegral (round (y * 100) :: Integer) / 100.0 :: Double) -- Round numbers
                 Nothing -> show x  -- Print non-numeric types normally
 
         -- Function to safely cast numbers to Double, returns Nothing for non-numeric types
@@ -81,28 +85,28 @@ data Model = Model {
 type Error = String
 
 exampleModel :: Date -> StepSize -> Model
-exampleModel startDate stepSize = Model {
-    startDate = startDate,
-    stepSize = stepSize,
-    constPr = constPr,
-    discDate = discDate,
-    discObs = discObs,
-    snell = snell,
-    exchange = exchange,
-    stockModel = stockModel,
-    findHorizon = findHorizon
+exampleModel start step = Model {
+    startDate = start,
+    stepSize = step,
+    constPr = constPr',
+    discDate = discDate',
+    discObs = discObs',
+    snell = snell',
+    exchange = exchange',
+    stockModel = stockModel',
+    findHorizon = findHorizon'
     }
 
     where
-        constPr :: a -> PR a
-        constPr val = PR (constSlice 1 val)
+        constPr' :: a -> PR a
+        constPr' val = PR (constSlice 1 val)
 
         constSlice :: Int -> a -> [ValSlice a]
         constSlice n x = replicate n x : constSlice (n+1) x
 
         -- for simplicity base currency is GBP
-        exchange :: Currency -> Either Error (PR Double)
-        exchange cur = 
+        exchange' :: Currency -> Either Error (PR Double)
+        exchange' cur = 
             case lookup cur exchangeRates of 
                 Just lm -> Right lm
                 Nothing -> Left ("Exchange rate of currency " ++ (show cur) ++ " not found")
@@ -110,7 +114,7 @@ exampleModel startDate stepSize = Model {
                 -- Volatility is annualised
                 exchangeRates :: [(Currency, PR Double)]
                 exchangeRates = 
-                    [ (GBP, constPr 1.0) -- assuming base currency is GBP
+                    [ (GBP, constPr' 1.0) -- assuming base currency is GBP
                     , (EUR, exchRateModel 0.83 0.0596 (stepSizeD / 365))
                     , (USD, exchRateModel 0.77 0.1819 (stepSizeD / 365))
                     ]
@@ -118,8 +122,8 @@ exampleModel startDate stepSize = Model {
                 exchRateModel :: Double -> Double -> Double -> PR Double
                 exchRateModel initVal vol timeS = PR $ _CCRModel initVal vol timeS
 
-        stockModel :: Stock -> Either Error (PR Double)
-        stockModel stk =
+        stockModel' :: Stock -> Either Error (PR Double)
+        stockModel' stk =
             case lookup stk stockPrices of 
                     Just lm -> Right lm
                     Nothing -> Left ("Stock model for stock " ++ (show stk) ++ " not found")
@@ -128,51 +132,52 @@ exampleModel startDate stepSize = Model {
                 -- Volatility is monthly
                 stockPrices :: [(Stock, PR Double)]
                 stockPrices =   
-                    [ (DIS, stockModel 109.12 0.2253 (stepSizeD / 30)) 
-                    , (TSLA, stockModel 338.74 0.9899 (stepSizeD / 30))
-                    , (NVDA, stockModel 140.15 0.3821 (stepSizeD / 30))
+                    [ (DIS, stockRates 109.12 0.2253 (stepSizeD / 30)) 
+                    , (TSLA, stockRates 338.74 0.9899 (stepSizeD / 30))
+                    , (NVDA, stockRates 140.15 0.3821 (stepSizeD / 30))
                     ]
 
-                stockModel :: Double -> Double -> Double -> PR Double
-                stockModel initVal vol timeS = PR $ _CCRModel initVal vol timeS
+                stockRates :: Double -> Double -> Double -> PR Double
+                stockRates initVal vol timeS = PR $ _CCRModel initVal vol timeS
 
         -- Volatility is annualised
         interest_rates :: LatticeModel Double
         interest_rates = _HLIRModel 0.05 0.01 (stepSizeD / 365)
 
-        discObs :: Int -> PR Double -> Either Error (PR Double)
-        discObs horizon pr = discount horizon pr
+        discObs' :: Int -> PR Double -> Either Error (PR Double)
+        discObs' horizon pr = discount horizon pr
 
-        discDate :: Date -> PR Double -> Either Error (PR Double)
-        discDate d = discount ((daysBetween startDate d) `div` stepSize)               
+        discDate' :: Date -> PR Double -> Either Error (PR Double)
+        discDate' d = discount ((daysBetween start d) `div` step)               
 
-        findHorizon :: [ValSlice Bool] -> Int -> Either Error Int
-        findHorizon _ n
-            | n > 1500 = Left "Exceeded 1500 iterations in findHorizon!"
-        findHorizon [] _ = Left "Empty process or no stopping condition reached in findHorizon!"
-        findHorizon (bvs:bvss) n
+        findHorizon' :: [ValSlice Bool] -> Int -> Either Error Int
+        findHorizon' _ n
+            | n > 500 = Left "Exceeded 500 iterations in findHorizon!"
+        findHorizon' [] _ = Left "Passed an empty process or no stopping condition was reached in findHorizon!"
+        findHorizon' (bvs:bvss) n
             | and bvs   = Right n
-            | otherwise = findHorizon bvss (n+1)
+            | otherwise = findHorizon' bvss (n+1)
 
         discount :: Int -> PR Double -> Either Error (PR Double)
         discount lattice_depth (PR pr) = Right $ PR (discount' 1)
                 where 
-                underlying_process_len = length (take lattice_depth pr)
+                -- underlying_process_len = length (take lattice_depth pr)
                     
                 discount' :: TimeStep -> [ValSlice Double]
                 discount' t 
                     | t >= lattice_depth + 1 = [pr !! lattice_depth]       
-                    | otherwise = curSlice : restSlices 
-                        where 
-                            restSlices@(nextSlice:_) = discount' (t + 1) 
-                            curSlice = (discountSlice (t) nextSlice)
+                    | otherwise = case discount' (t + 1) of
+                        [] -> error "Unexpected empty list in discount'"
+                        restSlices@(nextSlice:_) -> 
+                            let curSlice = discountSlice t nextSlice
+                            in curSlice : restSlices
 
-        snell :: Date -> PR Double -> Either Error (PR Double)
-        snell d (PR pr)
-            | (daysBetween startDate d) <= 0 = Right $ constPr 0
-            | otherwise = Right $ PR (snell' 1)
+        snell' :: Date -> PR Double -> Either Error (PR Double)
+        snell' d (PR pr)
+            | (daysBetween start d) <= 0 = Right $ constPr' 0
+            | otherwise = Right $ PR (snell'' 1)
             where 
-                lattice_depth = ((daysBetween startDate d) `div` stepSize) + 1     
+                lattice_depth = ((daysBetween start d) `div` step) + 1     
                 underlying_process_len = length (take lattice_depth pr) 
 
                 maxByAverage :: [Double] -> [Double] -> [Double]
@@ -182,16 +187,17 @@ exampleModel startDate stepSize = Model {
                     where
                         avg lst = sum lst / fromIntegral (length lst)
 
-                snell' :: TimeStep -> [ValSlice Double]
-                snell' t 
+                snell'' :: TimeStep -> [ValSlice Double]
+                snell'' t 
                     | t == underlying_process_len && t == lattice_depth = [pr !! (underlying_process_len - 1)]
-                    | t == underlying_process_len && t < lattice_depth = (pr !! (underlying_process_len - 1)) : snell' (t+1)
-                    | t > underlying_process_len && t < lattice_depth = (replicate (t+1) 0) : snell' (t+1)
+                    | t == underlying_process_len && t < lattice_depth = (pr !! (underlying_process_len - 1)) : snell'' (t+1)
+                    | t > underlying_process_len && t < lattice_depth = (replicate (t+1) 0) : snell'' (t+1)
                     | t == lattice_depth = [replicate (t+1) 0]
-                    | otherwise = curSlice : snell' (t+1)
-                        where 
-                            restSlices@(nextSlice:_) = snell' (t + 1) 
-                            curSlice = maxByAverage (discountSlice (t) nextSlice) (pr !! (t-1))
+                    | otherwise = case snell'' (t + 1) of
+                        [] -> error "Unexpected empty list in snell''"
+                        restSlices@(nextSlice:_) -> 
+                            let curSlice = maxByAverage (discountSlice t nextSlice) (pr !! (t-1))
+                            in curSlice : restSlices
 
 
         discountSlice :: TimeStep -> ValSlice Double -> ValSlice Double
@@ -201,7 +207,7 @@ exampleModel startDate stepSize = Model {
                         irs = interest_rates !! (t)         
                 
         stepSizeD :: Double
-        stepSizeD = fromIntegral stepSize
+        stepSizeD = fromIntegral step
 
         -- for exchange rates and stock prices 
         _CCRModel :: Double -> Double -> Double -> LatticeModel Double
@@ -218,4 +224,6 @@ exampleModel startDate stepSize = Model {
                 down x = x - vol * sqrt time
 
 maximumValToday :: PR Double -> PR Double -> PR Double
+maximumValToday (PR []) pr = pr
+maximumValToday pr (PR []) = pr
 maximumValToday (PR (xs:xss)) (PR (ys:yss)) = if xs !! 0 > ys !! 0 then PR (xs:xss) else PR (ys:yss)
