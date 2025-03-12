@@ -254,6 +254,30 @@ unit_test_unprofitable_american =
   in assertPRApproxEqual "UnprofitableAmerican" leftE rightE
 
 ----------------------------------------------------------------
+-- HUnit tests for invalid contracts
+----------------------------------------------------------------
+
+-- Trying to acquire an expired contract should fail
+unit_test_expired_c_acquisition :: Assertion
+unit_test_expired_c_acquisition = 
+  let model    = exampleModel today 30
+      contract = AcquireOn (date "05-02-2020") (One GBP)
+      result   = eval model contract
+  in case result of
+       Left _    -> return ()  -- Expected failure, test passes
+       Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
+
+-- Using an unsupported currency should fail
+unit_test_unsupported_currency :: Assertion
+unit_test_unsupported_currency = 
+  let model    = exampleModel today 30
+      contract = AcquireOn (date "05-02-2025") (One BGN)
+      result   = eval model contract
+  in case result of
+       Left _    -> return ()  -- Expected failure, test passes
+       Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
+
+----------------------------------------------------------------
 -- Generic helper to compare two evaluated contracts in HUnit
 ----------------------------------------------------------------
 
@@ -283,8 +307,6 @@ assertPRApproxEqual testName leftE rightE =
            )
            same
 
-
-
 ----------------------------------------------------------------
 -- Running all tests
 ----------------------------------------------------------------
@@ -308,6 +330,8 @@ main = defaultMain $ testGroup "All Tests"
       , testCase "test_unprofitable_european"  unit_test_unprofitable_european
       , testCase "test_profitable_american"  unit_test_profitable_american
       , testCase "test_unprofitable_american"  unit_test_unprofitable_american
+      , testCase "test_expired_c_acquisition" unit_test_expired_c_acquisition
+      , testCase "unit_test_unsupported_currency" unit_test_unsupported_currency
       ]
   ]
 
