@@ -48,7 +48,7 @@ optimiseContract c = case c of
        in 
           case sub' of
             AcquireOn d2 c2
-              | d <= d2  -> AcquireOn d (optimiseContract c2)
+              | d == d2  -> AcquireOn d (optimiseContract c2)
               | d > d2 -> AcquireOn d (None) 
             _ -> AcquireOn d sub'
     AcquireOnBefore d sub ->

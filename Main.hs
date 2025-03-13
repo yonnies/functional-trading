@@ -8,6 +8,7 @@ import Test.Tasty.QuickCheck
 import Test.Tasty.HUnit
 import Control.Applicative (liftA2)
 import Text.Printf (printf)
+import Control.Monad.State
 
 import ContractsDSL 
 import ModelUtils
@@ -137,6 +138,20 @@ prop_optimise_idempotent c =
        ++ "\noptimiseContract twice:\n" ++ show second
        )
        (first == second)
+
+evalTest :: Model -> Contract -> Bool -> Either String (PR Double)
+evalTest model c optContract= do
+  _ <- typeCheck c (startDate model)
+  let optC = if optContract then optimiseContract c else c
+  (result, _finalState) <- runStateT (evalC model optC (startDate model)) emptyEvalState
+  return result
+
+-- Distributive property: Scale x (c1 `Or` c2) = (Scale x c1) `Or` (Scale x c2)
+prop_optLayerPreservesMeanign :: Contract -> Property
+prop_optLayerPreservesMeanign c =
+  within 1000000 $ evalTest model c False ≈ evalTest model c True
+  where
+    model = exampleModel today 30
 
 -- Distributive property: Scale x (c1 `Or` c2) = (Scale x c1) `Or` (Scale x c2)
 prop_orScaleDistributive :: NonNegative Double -> Contract -> Contract -> Property
@@ -318,7 +333,8 @@ main = defaultMain $ testGroup "All Tests"
       , testProperty "optimiseIdempotent"     prop_optimise_idempotent
       ]
   , testGroup "Valuation properties"
-      [ testProperty "orScaleDistributive"    prop_orScaleDistributive
+      [ testProperty "prop_optLayerPreservesMeanign" prop_optLayerPreservesMeanign
+      , testProperty "orScaleDistributive"    prop_orScaleDistributive
       , testProperty "giveNegates"            prop_give_negates
       , testProperty "andAdds"                prop_and_adds
       , testProperty "orMax"                  prop_or_max
