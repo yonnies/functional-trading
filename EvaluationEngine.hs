@@ -45,8 +45,7 @@ optimiseContract :: Contract -> Contract
 optimiseContract c = case c of
     AcquireOn d sub ->
       let sub' = optimiseContract sub 
-       in 
-          case sub' of
+       in case sub' of
             AcquireOn d2 c2
               | d == d2  -> AcquireOn d (optimiseContract c2)
               | d > d2 -> AcquireOn d (None) 
@@ -66,20 +65,37 @@ optimiseContract c = case c of
     Or c1 c2 ->
       let c1' = optimiseContract c1
           c2' = optimiseContract c2
-       in if c1' == c2'
-             then c1'
-             else Or c1' c2'
+       in case (c1', c2') of
+            (None, x) -> x
+            (x, None) -> x
+            (Scale obs1 c1'', Scale obs2 c2'') -> 
+                case (obs1, obs2) of
+                    (Konst k, Konst j) | k == j && k >= 0 -> 
+                        Scale obs1 (Or c1'' c2'')
+                    _ -> Or c1' c2'
+            _ -> if c1' == c2'
+                    then c1'
+                    else Or c1' c2'
     And c1 c2 ->
       let c1' = optimiseContract c1
           c2' = optimiseContract c2
        in case (c1', c2') of
             (None, x) -> x
             (x, None) -> x
+            (Scale obs1 c1'', Scale obs2 c2'') -> 
+                if obs1 == obs2 
+                  then Scale obs1 (And c1'' c2'')
+                  else And c1' c2'
             _         -> And c1' c2'
     Scale obs sub ->
       let sub' = optimiseContract sub
-       in 
-          Scale obs sub'
+       in case obs of
+            Konst 1 -> sub'  
+            Konst k1 -> 
+              case sub' of
+                Scale (Konst k2) c' -> Scale (Konst (k1 * k2)) c'
+                _ -> Scale (Konst k1) sub'
+            _ -> Scale obs sub'
     None      -> None
     One cur   -> One cur
 
