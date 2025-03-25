@@ -56,6 +56,7 @@ data Obs a where
     LiftD       :: UnaryOp -> Obs Double -> Obs Double
     Lift2D      :: BinaryOp -> Obs Double -> Obs Double -> Obs Double
     Lift2B      :: CompareOp -> Obs Double -> Obs Double -> Obs Bool
+    MaxObs      :: Obs Double -> Obs Double -> Obs Double
     
 deriving instance Show a => Show (Obs a)
 deriving instance Eq a => Eq (Obs a)
@@ -127,21 +128,6 @@ compareOpMap CGE = (>=)
 compareOpMap CGT = (>)
 
 ----------------------------------------------------
--- Lower case notation to prevent typo bugs 
-
--- none = None
--- one = One
--- give = Give
--- and_ = And
--- or_ = Or
--- acquireOn = AcquireOn
--- acquireOnBefore = AcquireOnBefore
--- scale = Scale
--- konst = Konst
--- stockPrice = StockPrice
--- acquireWhen = AcquireWhen
-
-----------------------------------------------------
 -- Supported Currencies & Stocks 
 
 data Currency = GBP | USD | EUR | BGN
@@ -149,3 +135,39 @@ data Currency = GBP | USD | EUR | BGN
                               
 data Stock = DIS | TSLA | NVDA
     deriving (Eq, Show, Ord)
+
+----------------------------------------------------
+-- Lower case notation to prevent typo bugs 
+
+one :: Currency -> Contract
+one = One
+
+give :: Contract -> Contract
+give = Give
+
+and_ :: Contract -> Contract -> Contract
+and_ = And
+
+or_ :: Contract -> Contract -> Contract
+or_ = Or
+
+acquireOn :: Date -> Contract -> Contract
+acquireOn = AcquireOn
+
+acquireOnBefore :: Date -> Contract -> Contract
+acquireOnBefore = AcquireOnBefore
+
+scale :: Obs Double -> Contract -> Contract
+scale = Scale
+
+konst :: Double -> Obs Double
+konst = Konst
+
+stockPrice :: Stock -> Obs Double
+stockPrice = StockPrice
+
+acquireWhen :: Obs Bool -> Contract -> Contract
+acquireWhen = AcquireWhen
+
+maxObs :: Obs Double -> Obs Double -> Obs Double
+maxObs = MaxObs

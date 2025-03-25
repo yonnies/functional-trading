@@ -15,7 +15,7 @@ import qualified Data.Map.Strict as Map
 
 ---------------------------- Type-checker ----------------------------
 
-typeCheck :: Contract -> Date -> Either Error ()
+typeCheck :: Contract -> Date -> Either Error () -- validity checker
 typeCheck None _ = Left "Error: Contract has no acquisition date set."
 typeCheck (One _) _ = Left "Error: Contract has no acquisition date set."
 typeCheck (Give c) d = do
@@ -149,7 +149,7 @@ eval model c = do
 evalC :: Model -> Contract -> Date -> EvalM (PR Double)
 evalC model contract earliestAcDate = do
   st <- get
-  case Map.lookup (KContract contract) (cache st) of
+  case Map.lookup (KContract contract) (cache st) of -- reconsider it
     Just (VDouble cachedPR) -> return cachedPR
     Just (VBool _)          -> throwError "Contract was stored with VBool, logic bug!"
     Nothing -> do
@@ -243,6 +243,10 @@ evalDO model obsD = do
       po1 <- evalDO model o1
       po2 <- evalDO model o2
       return (ModelUtils.lift2 (binaryOpMap op) po1 po2)  
+    eval' (MaxObs o1 o2) = do
+      po1 <- evalDO model o1
+      po2 <- evalDO model o2
+      return (maxPR po1 po2)
 
 evalBO :: Model -> Obs Bool -> EvalM (PR Bool)
 evalBO model obsB = do

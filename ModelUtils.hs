@@ -58,11 +58,21 @@ instance Eq a => Eq (PR a) where
 instance Ord a => Ord (PR a) where  
     (PR pr1) <= (PR pr2) = pr1 <= pr2
 
+
+
 lift :: (a -> b) -> PR a -> PR b
 lift f (PR xss) = PR [[f x | x <- xs] | xs <- xss]
 
 lift2 :: (a -> b -> c) -> PR a -> PR b -> PR c
 lift2 f (PR xss) (PR yss) = PR [[f x y | (x,y) <- zip xs ys ] | (xs,ys) <- zip xss yss]
+
+maximumValToday :: PR Double -> PR Double -> PR Double
+maximumValToday (PR []) pr = pr
+maximumValToday pr (PR []) = pr
+maximumValToday (PR (xs:xss)) (PR (ys:yss)) = if xs !! 0 > ys !! 0 then PR (xs:xss) else PR (ys:yss)
+
+maxPR :: Ord a => PR a -> PR a -> PR a
+maxPR = lift2 max
 
 initLatticeModel :: ValSlice a -> (a -> a) -> (a -> a) -> LatticeModel a
 initLatticeModel prevLayer upFactor downFactor = 
@@ -221,7 +231,3 @@ exampleModel start step = Model {
                 up x = x + vol * sqrt time
                 down x = x - vol * sqrt time
 
-maximumValToday :: PR Double -> PR Double -> PR Double
-maximumValToday (PR []) pr = pr
-maximumValToday pr (PR []) = pr
-maximumValToday (PR (xs:xss)) (PR (ys:yss)) = if xs !! 0 > ys !! 0 then PR (xs:xss) else PR (ys:yss)

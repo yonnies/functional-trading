@@ -1,15 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Main where
+module BenchEval where
 
 import Criterion.Main
 import ContractsDSL
 import EvaluationEngine 
 import ModelUtils
-import TestSuite
-import TestEvaluation
+import Main
 import Test.QuickCheck
-import System.Random
+
+zcdb :: Date -> Double -> Currency -> Contract
+zcdb t val cur = AcquireOn t (Scale (Konst val) (One cur))
 
 main :: IO ()
 main = do
@@ -24,19 +25,19 @@ main = do
   defaultMain
     [ bgroup "eval_contract-Examples"
       [ bench "Bond (zcdb)" $
-          nf (eval_contract model) simpleBond
+          nf (eval model) simpleBond
 
       , bench "payAndGive" $
-          nf (eval_contract model) payAndGive
+          nf (eval model) payAndGive
 
       , bench "european option" $
-          nf (eval_contract model) opt
+          nf (eval model) opt
       ]
     , bgroup "eval_contract-Random"
       [ bench "randomContract-size10" $
-          nf (eval_contract model) randomContract10
+          nf (eval model) randomContract10
 
       , bench "randomContract-size50" $
-          nf (eval_contract model) randomContract50
+          nf (eval model) randomContract50
       ]
     ]

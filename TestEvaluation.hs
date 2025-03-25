@@ -152,6 +152,7 @@ c14 = Scale (Konst (-2.6666666666666665)) (AcquireOn (date "25-12-2030") (Or (An
 
 c15 = acquireWhen (stockPrice NVDA %> 300) (scale (stockPrice TSLA) (one USD))
 
+c16 = acquireOnBefore (date "01-09-2025") ((scale (konst 50) (one GBP)) `and_` (acquireOn (date "01-06-2025") (give (scale (konst 100) (one GBP)))))
 -------------------------------------------------------
 -- Model specific functions
 -------------------------------------------------------
