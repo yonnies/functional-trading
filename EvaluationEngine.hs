@@ -154,66 +154,66 @@ evalC model contract earliestAcDate = do
     Just (VBool _)          -> throwError "Contract was stored with VBool, logic bug!"
     Nothing -> do
       -- Not in cache
-      result <- eval' contract earliestAcDate
+      result <- evalC' model contract earliestAcDate
       -- Insert the result
       let newMap = Map.insert (KContract contract) (VDouble result) (cache st)
       put st { cache = newMap }
       return result
-  where
-    ----------------------------------------------------------------------------
-    -- The local `eval` function does the real recursive work
-    ----------------------------------------------------------------------------
-    eval' :: Contract -> Date -> EvalM (PR Double)
-    eval' None _ = 
-      return (constPr model 0)
+  
+----------------------------------------------------------------------------
+-- The local `evalC'` function does the real recursive work
+----------------------------------------------------------------------------
+evalC' :: Model -> Contract -> Date -> EvalM (PR Double)
+evalC' model None _ = 
+  return (constPr model 0)
 
-    eval' (One cur) _ = do
-      pr <- liftEither (exchange model cur)
+evalC' model (One cur) _ = do
+  pr <- liftEither (exchange model cur)
+  return pr
+
+evalC' model (Give c) d = do
+  cVal <- evalC model c d
+  return (negate cVal)
+
+evalC' model (And c1 c2) d = do
+  pr1 <- evalC model c1 d
+  pr2 <- evalC model c2 d
+  return (pr1 + pr2)
+
+evalC' model (Or c1 c2) d = do
+    pr1 <- evalC model c1 d
+    pr2 <- evalC model c2 d
+    return (maximumValToday pr1 pr2)
+
+evalC' model (AcquireOn d2 c) d1 = do
+  if d2 < d1
+    then return (constPr model 0)
+    else do
+      cVal  <- evalC model c d2
+      pr    <- liftEither (discDate model d2 cVal)
       return pr
 
-    eval' (Give c) d = do
-      cVal <- evalC model c d
-      return (negate cVal)
+evalC' model (AcquireOnBefore d2 c) d1 = do
+  if d2 < d1
+    then return (constPr model 0)
+    else do
+      cVal <- evalC model c (startDate model)
+      pr   <- liftEither (snell model d2 cVal)
+      return pr
 
-    eval' (And c1 c2) d = do
-      pr1 <- evalC model c1 d
-      pr2 <- evalC model c2 d
-      return (pr1 + pr2)
+evalC' model (AcquireWhen obs c) d = do
+  (PR obsPR) <- evalBO model obs
+  d2 <- liftEither (findHorizon model obsPR 0)
+  let d1 = (daysBetween (startDate model) d) `div` stepSize model
+  if (d2 < d1) then return (constPr model 0) else do
+    cVal  <- evalC model c d
+    pr    <- liftEither (discObs model d2 cVal)
+    return pr
 
-    eval' (Or c1 c2) d = do
-        pr1 <- evalC model c1 d
-        pr2 <- evalC model c2 d
-        return (maximumValToday pr1 pr2)
-
-    eval' (AcquireOn d2 c) d1 = do
-      if d2 < d1
-        then return (constPr model 0)
-        else do
-          cVal  <- evalC model c d2
-          pr    <- liftEither (discDate model d2 cVal)
-          return pr
-
-    eval' (AcquireOnBefore d2 c) d1 = do
-      if d2 < d1
-        then return (constPr model 0)
-        else do
-          cVal <- evalC model c (startDate model)
-          pr   <- liftEither (snell model d2 cVal)
-          return pr
-
-    eval' (AcquireWhen obs c) d = do
-      (PR obsPR) <- evalBO model obs
-      d2 <- liftEither (findHorizon model obsPR 0)
-      let d1 = (daysBetween (startDate model) d) `div` stepSize model
-      if (d2 < d1) then return (constPr model 0) else do
-        cVal  <- evalC model c d
-        pr    <- liftEither (discObs model d2 cVal)
-        return pr
-
-    eval' (Scale obs c) d = do
-      obsPR <- evalDO model obs
-      cVal  <- evalC model c d
-      return (obsPR * cVal)
+evalC' model (Scale obs c) d = do
+  obsPR <- evalDO model obs
+  cVal  <- evalC model c d
+  return (obsPR * cVal)
 
 ----------------------------------------------------------------------------
 -- Memoized evaluation of an observable
@@ -226,27 +226,27 @@ evalDO model obsD = do
     Just (VDouble prD) -> return prD
     Just (VBool _)     -> throwError "Obs Double is stored as VBool, logic error!"
     Nothing -> do
-      pr <- eval' obsD
+      pr <- evalDO' model obsD
       let newMap = Map.insert (KObsDouble obsD) (VDouble pr) (cache st)
       put st { cache = newMap }
       return pr
-  where
-    eval' :: Obs Double -> EvalM (PR Double)
-    eval' (Konst k) = return (constPr model (realToFrac k))
-    eval' (StockPrice stk) = do 
-      pr <- liftEither (stockModel model stk)
-      return pr
-    eval' (LiftD op o) = do
-      po <- evalDO model o
-      return (ModelUtils.lift (unaryOpMap op) po)
-    eval' (Lift2D op o1 o2) = do
-      po1 <- evalDO model o1
-      po2 <- evalDO model o2
-      return (ModelUtils.lift2 (binaryOpMap op) po1 po2)  
-    eval' (MaxObs o1 o2) = do
-      po1 <- evalDO model o1
-      po2 <- evalDO model o2
-      return (maxPR po1 po2)
+
+evalDO' :: Model -> Obs Double -> EvalM (PR Double)
+evalDO' model (Konst k) = return (constPr model (realToFrac k))
+evalDO' model (StockPrice stk) = do 
+  pr <- liftEither (stockModel model stk)
+  return pr
+evalDO' model (LiftD op o) = do
+  po <- evalDO model o
+  return (ModelUtils.lift (unaryOpMap op) po)
+evalDO' model (Lift2D op o1 o2) = do
+  po1 <- evalDO model o1
+  po2 <- evalDO model o2
+  return (ModelUtils.lift2 (binaryOpMap op) po1 po2)  
+evalDO' model (MaxObs o1 o2) = do
+  po1 <- evalDO model o1
+  po2 <- evalDO model o2
+  return (maxPR po1 po2)
 
 evalBO :: Model -> Obs Bool -> EvalM (PR Bool)
 evalBO model obsB = do
@@ -255,13 +255,13 @@ evalBO model obsB = do
     Just (VBool prB) -> return prB
     Just (VDouble _) -> throwError "Obs Bool stored as VDouble, logic error!"
     Nothing -> do
-      pr <- eval' obsB
+      pr <- evalBO' model obsB
       let newMap = Map.insert (KObsBool obsB) (VBool pr) (cache st)
       put st { cache = newMap }
       return pr
-  where
-    eval' :: Obs Bool -> EvalM (PR Bool)
-    eval' (Lift2B op o1 o2) = do
-      po1 <- evalDO model o1
-      po2 <- evalDO model o2
-      return (ModelUtils.lift2 (compareOpMap op) po1 po2)
+  
+evalBO' :: Model -> Obs Bool -> EvalM (PR Bool)
+evalBO' model (Lift2B op o1 o2) = do
+  po1 <- evalDO model o1
+  po2 <- evalDO model o2
+  return (ModelUtils.lift2 (compareOpMap op) po1 po2)
