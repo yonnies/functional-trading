@@ -1,2 +1,4 @@
 *.txt
 dist-newstyle/
+*.hi
+*.o

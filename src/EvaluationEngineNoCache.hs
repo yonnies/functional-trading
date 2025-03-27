@@ -4,18 +4,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module EvaluationEngine where
+module EvaluationEngineNoCache where
 
 import ContractsDSL
 import ModelUtils
 
 import Control.Monad.Except
-import Control.Monad.State
-import qualified Data.Map.Strict as Map
 
 ---------------------------- Type-checker ----------------------------
 
-typeCheck :: Contract -> Date -> Either Error () -- validity checker
+typeCheck :: Contract -> Date -> Either Error () 
 typeCheck None _ = Left "Error: Contract has no acquisition date set."
 typeCheck (One _) _ = Left "Error: Contract has no acquisition date set."
 typeCheck (Give c) d = do
@@ -102,90 +100,73 @@ optimiseContract c = case c of
 
 ----------------------------- Evaluation -----------------------------
 
----------------------------------------
--- Cache
----------------------------------------
-data Key
-  = KContract Contract
-  | KObsDouble (Obs Double)
-  | KObsBool   (Obs Bool)
-  deriving (Eq, Ord, Show)
+-- ---------------------------------------
+-- -- Cache
+-- ---------------------------------------
+-- data Key
+--   = KContract Contract
+--   | KObsDouble (Obs Double)
+--   | KObsBool   (Obs Bool)
+--   deriving (Eq, Ord, Show)
 
-data Val
-  = VDouble (PR Double)
-  | VBool   (PR Bool)
-  deriving (Show)
+-- data Val
+--   = VDouble (PR Double)
+--   | VBool   (PR Bool)
+--   deriving (Show)
 
-type Cache = Map.Map Key Val
+-- type Cache = Map.Map Key Val
 
--- We'll keep an EvalState with that single cache
-data EvalState = EvalState
-  { cache :: Cache
-  }
+-- -- We'll keep an EvalState with that single cache
+-- data EvalState = EvalState
+--   { cache :: Cache
+--   }
 
--- The monad: we carry our cache (EvalState) in StateT,
--- and can fail with String errors using Either String
-type EvalM a = StateT EvalState (Either String) a
+-- -- The monad: we carry our cache (EvalState) in StateT,
+-- -- and can fail with String errors using Either String
+-- type EvalM a = StateT EvalState (Either String) a
 
-emptyEvalState :: EvalState
-emptyEvalState = EvalState { cache = Map.empty }
+-- emptyEvalState :: EvalState
+-- emptyEvalState = EvalState { cache = Map.empty }
+
+type EvalM a = Either String a
+
 
 ---------------------------------------
 -- Top-level evaluation
 ---------------------------------------
-eval :: Model -> Contract -> Either String (PR Double)
+eval :: Model -> Contract -> EvalM (PR Double)
 eval model c = do
-  -- If typeCheck fails, we short-circuit with a Left.
   _ <- typeCheck c (startDate model)
   let optC = optimiseContract c
-  -- Run our StateT-based evaluator with an empty cache:
-  (result, _finalState) <- runStateT (evalC model optC (startDate model)) emptyEvalState
-  return result
+  evalC model optC (startDate model)
 
 ----------------------------------------------------------------------------
 -- Memoized evaluation of a contract
 ----------------------------------------------------------------------------
 
 evalC :: Model -> Contract -> Date -> EvalM (PR Double)
-evalC model contract earliestAcDate = do
-  st <- get
-  case Map.lookup (KContract contract) (cache st) of -- reconsider it
-    Just (VDouble cachedPR) -> return cachedPR
-    Just (VBool _)          -> throwError "Contract was stored with VBool, logic bug!"
-    Nothing -> do
-      -- Not in cache
-      result <- evalC' model contract earliestAcDate
-      -- Insert the result
-      let newMap = Map.insert (KContract contract) (VDouble result) (cache st)
-      put st { cache = newMap }
-      return result
-  
-----------------------------------------------------------------------------
--- The local `evalC'` function does the real recursive work
-----------------------------------------------------------------------------
-evalC' :: Model -> Contract -> Date -> EvalM (PR Double)
-evalC' model None _ = 
+evalC model None _ = 
   return (constPr model 0)
 
-evalC' model (One cur) _ = do
+evalC model (One cur) _ = do
   pr <- liftEither (exchange model cur)
   return pr
 
-evalC' model (Give c) d = do
+evalC model (Give c) d = do
   cVal <- evalC model c d
   return (negate cVal)
 
-evalC' model (And c1 c2) d = do
+evalC model (And c1 c2) d = do
   pr1 <- evalC model c1 d
   pr2 <- evalC model c2 d
   return (pr1 + pr2)
 
-evalC' model (Or c1 c2) d = do
+evalC model (Or c1 c2) d = do
     pr1 <- evalC model c1 d
     pr2 <- evalC model c2 d
     return (maximumValToday pr1 pr2)
 
-evalC' model (AcquireOn d2 c) d1 = do
+evalC model (AcquireOn d2 c) d1 = do
   if d2 < d1
     then return (constPr model 0)
     else do
@@ -193,7 +174,7 @@ evalC' model (AcquireOn d2 c) d1 = do
       pr    <- liftEither (discDate model d2 cVal)
       return pr
 
-evalC' model (AcquireOnBefore d2 c) d1 = do
+evalC model (AcquireOnBefore d2 c) d1 = do
   if d2 < d1
     then return (constPr model 0)
     else do
@@ -201,7 +182,7 @@ evalC' model (AcquireOnBefore d2 c) d1 = do
       pr   <- liftEither (snell model d2 cVal)
       return pr
 
-evalC' model (AcquireWhen obs c) d = do
+evalC model (AcquireWhen obs c) d = do
   (PR obsPR) <- evalBO model obs
   d2 <- liftEither (findHorizon model obsPR 0)
   let d1 = (daysBetween (startDate model) d) `div` stepSize model
@@ -210,7 +191,7 @@ evalC' model (AcquireWhen obs c) d = do
     pr    <- liftEither (discObs model d2 cVal)
     return pr
 
-evalC' model (Scale obs c) d = do
+evalC model (Scale obs c) d = do
   obsPR <- evalDO model obs
   cVal  <- evalC model c d
   return (obsPR * cVal)
@@ -220,48 +201,24 @@ evalC' model (Scale obs c) d = do
 ----------------------------------------------------------------------------
 
 evalDO :: Model -> Obs Double -> EvalM (PR Double)
-evalDO model obsD = do
-  st <- get
-  case Map.lookup (KObsDouble obsD) (cache st) of
-    Just (VDouble prD) -> return prD
-    Just (VBool _)     -> throwError "Obs Double is stored as VBool, logic error!"
-    Nothing -> do
-      pr <- evalDO' model obsD
-      let newMap = Map.insert (KObsDouble obsD) (VDouble pr) (cache st)
-      put st { cache = newMap }
-      return pr
-
-evalDO' :: Model -> Obs Double -> EvalM (PR Double)
-evalDO' model (Konst k) = return (constPr model (realToFrac k))
-evalDO' model (StockPrice stk) = do 
+evalDO model (Konst k) = return (constPr model (realToFrac k))
+evalDO model (StockPrice stk) = do 
   pr <- liftEither (stockModel model stk)
   return pr
-evalDO' model (LiftD op o) = do
+evalDO model (LiftD op o) = do
   po <- evalDO model o
   return (ModelUtils.lift (unaryOpMap op) po)
-evalDO' model (Lift2D op o1 o2) = do
+evalDO model (Lift2D op o1 o2) = do
   po1 <- evalDO model o1
   po2 <- evalDO model o2
   return (ModelUtils.lift2 (binaryOpMap op) po1 po2)  
-evalDO' model (MaxObs o1 o2) = do
+evalDO model (MaxObs o1 o2) = do
   po1 <- evalDO model o1
   po2 <- evalDO model o2
   return (maxPR po1 po2)
 
 evalBO :: Model -> Obs Bool -> EvalM (PR Bool)
-evalBO model obsB = do
-  st <- get
-  case Map.lookup (KObsBool obsB) (cache st) of
-    Just (VBool prB) -> return prB
-    Just (VDouble _) -> throwError "Obs Bool stored as VDouble, logic error!"
-    Nothing -> do
-      pr <- evalBO' model obsB
-      let newMap = Map.insert (KObsBool obsB) (VBool pr) (cache st)
-      put st { cache = newMap }
-      return pr
-  
-evalBO' :: Model -> Obs Bool -> EvalM (PR Bool)
-evalBO' model (Lift2B op o1 o2) = do
+evalBO model (Lift2B op o1 o2) = do
   po1 <- evalDO model o1
   po2 <- evalDO model o2
   return (ModelUtils.lift2 (compareOpMap op) po1 po2)

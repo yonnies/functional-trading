@@ -2,7 +2,6 @@
 module Main where
 
 import Test.QuickCheck
-import Data.Time (addDays)
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.Tasty.HUnit
@@ -14,83 +13,6 @@ import ContractsDSL
 import ModelUtils
 import EvaluationEngine
 
--------------------------------------------------
--- Contract generation rules 
--------------------------------------------------
-
--- Arbitrary instance for generating random contracts
-instance Arbitrary Contract where
-  arbitrary = sized genContract 
-
--- Generate random contracts with a size limit
-genContract :: Int -> Gen Contract
-genContract 0 = frequency
-  [ (1, pure None)
-  , (8, One <$> genRandomCurrency)
-  ]
-genContract n = oneof
-  [ Give <$> genContract (n `div` 2)
-  , do
-      leftSize <- choose (0, n `div` 2)
-      c1 <- genContract leftSize
-      c2 <- genContract (n `div` 2 - leftSize)
-      oneof [ pure (And c1 c2), pure (Or c1 c2) ]
-  , do
-      c <- genContract (n `div` 2)
-      someDate <- genRandomDate
-      oneof [ pure (AcquireOn someDate c), pure (AcquireOnBefore someDate c) ]
-  , do
-      c <- genContract (n `div` 2)
-      obs <- genObsDouble
-      pure (Scale obs c)
-  , do
-      c <- genContract (n `div` 2)
-      obs <- genObsBool
-      pure (AcquireWhen obs c)
-  ]
-
--- Generate random numeric observables
-genObsDouble :: Gen (Obs Double)
-genObsDouble = sized $ \n -> 
-  if n <= 0 then baseCase else frequency
-    [ (4, baseCase)
-    , (2, LiftD <$> genUnaryOp <*> resize (n-1) genObsDouble)
-    , (2, Lift2D <$> genBinaryOp <*> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
-    ]
-  where
-    baseCase = frequency
-      [ (3, Konst <$> arbitrary)
-      , (2, StockPrice <$> genRandomStock)
-      ]
-
--- Generate random boolean observables
-genObsBool :: Gen (Obs Bool)
-genObsBool = Lift2B <$> genCompareOp <*> genObsDouble <*> genObsDouble
-
--- Generate random operators for expressions
-genUnaryOp :: Gen UnaryOp
-genUnaryOp = elements [UNegate]
-
-genBinaryOp :: Gen BinaryOp
-genBinaryOp = elements [BAdd, BSub, BMul]
-
-genCompareOp :: Gen CompareOp
-genCompareOp = elements [CLT, CLE, CEQ, CGE, CGT]
-
--- Generate random currencies and stocks
-genRandomCurrency :: Gen Currency
-genRandomCurrency = elements [GBP, USD, EUR]
-
-genRandomStock :: Gen Stock
-genRandomStock = elements [DIS, TSLA, NVDA]
-
--- Generate a random date in a fixed range
-genRandomDate :: Gen Date
-genRandomDate = do
-  let startDay = today
-      endDay   = date "31-12-2030"
-  offset <- choose (0, daysBetween startDay endDay)
-  pure (addDays (toInteger offset) startDay)
 
 ----------------------------------------------------------------
 -- Approximate equality checks for contract evaluation
@@ -141,7 +63,7 @@ prop_optimise_idempotent c =
 
 evalTest :: Model -> Contract -> Bool -> Either String (PR Double)
 evalTest model c optContract= do
-  _ <- typeCheck c (startDate model)
+  _ <- validityCheck c (startDate model)
   let optC = if optContract then optimiseContract c else c
   (result, _finalState) <- runStateT (evalC model optC (startDate model)) emptyEvalState
   return result
