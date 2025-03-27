@@ -3,6 +3,7 @@
 module Main where
 
 import Criterion.Main
+
 import ContractsDSL
 import EvaluationEngine         -- Original version with caching
 import EvaluationEngineNoCache  -- Version without caching
@@ -31,34 +32,18 @@ opt         = european (date "01-03-2025") (Scale (StockPrice DIS) (One GBP)) 10
 repetitiveAndContract :: Contract
 repetitiveAndContract =
     let sharedSubcontract = Scale (konst 2) (one GBP)
-    in and_ (and_ sharedSubcontract sharedSubcontract)
+    in AcquireOn (date "06-11-2026") 
+        (and_ (and_ sharedSubcontract sharedSubcontract)
             (and_ (and_ sharedSubcontract sharedSubcontract)
-                  (and_ sharedSubcontract sharedSubcontract))
+                  (and_ sharedSubcontract sharedSubcontract)))
 
 repetitiveScaleContract :: Contract
 repetitiveScaleContract =
     let obs1 = stockPrice DIS + konst 10
         obs2 = stockPrice TSLA * konst 2
         sharedScale = Scale obs1 (Scale obs2 (one USD))
-    in and_ sharedScale (and_ sharedScale sharedScale)
-
-repetitiveOptionContract :: Contract
-repetitiveOptionContract =
-    let strike = 100
-        underlying = stockPrice NVDA
-        condition = underlying %> konst strike
-        payoff = Scale (underlying - konst strike) (one EUR)
-        option = acquireWhen condition payoff
-    in or_ option (and_ option option)  -- Reuse the same option
-
-recursiveRepetitiveContract :: Int -> Contract
-recursiveRepetitiveContract n
-    | n <= 0 = one GBP
-    | otherwise = 
-        let shared = recursiveRepetitiveContract (n-1)
-        in and_ shared (and_ shared shared)  -- Exponential repetition
-
-
+    in  AcquireOn (date "06-11-2026")  
+          (and_ sharedScale (and_ sharedScale sharedScale))
 
 --------------------------------------------------------
 -- Benchmark main
@@ -96,14 +81,14 @@ main = do
         [ bench "With Cache"    $ nf (EvaluationEngine.eval model) repetitiveScaleContract
         , bench "Without Cache" $ nf (EvaluationEngineNoCache.eval model) repetitiveScaleContract
         ]
-      , bgroup "Repetitive Option Contract"
-        [ bench "With Cache"    $ nf (EvaluationEngine.eval model) repetitiveOptionContract
-        , bench "Without Cache" $ nf (EvaluationEngineNoCache.eval model) repetitiveOptionContract
-        ]
-      , bgroup "Recursive Repetitive Contract (Depth 5)"
-        [ bench "With Cache"    $ nf (EvaluationEngine.eval model) (recursiveRepetitiveContract 5)
-        , bench "Without Cache" $ nf (EvaluationEngineNoCache.eval model) (recursiveRepetitiveContract 5)
-        ]
+      -- , bgroup "Repetitive Option Contract"
+      --   [ bench "With Cache"    $ nf (EvaluationEngine.eval model) repetitiveOptionContract
+      --   , bench "Without Cache" $ nf (EvaluationEngineNoCache.eval model) repetitiveOptionContract
+      --   ]
+      -- , bgroup "Recursive Repetitive Contract (Depth 5)"
+      --   [ bench "With Cache"    $ nf (EvaluationEngine.eval model) (recursiveRepetitiveContract 5)
+      --   , bench "Without Cache" $ nf (EvaluationEngineNoCache.eval model) (recursiveRepetitiveContract 5)
+      --   ]
       ]
       
 

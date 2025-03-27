@@ -31,6 +31,10 @@ executable functional-trading
         QuickCheck,
         deepseq,
         functional-trading
+    other-modules:
+        ContractsDSL
+        EvaluationEngine
+        ModelUtils
     default-language: Haskell2010
 
 test-suite functional-trading-tests
@@ -63,10 +67,6 @@ benchmark functional-trading-bench
         containers,
         mtl,
         QuickCheck,
-        tasty >=1.4,
-        tasty-quickcheck >=0.10,
-        tasty-hunit >=0.10,
-        HUnit >=1.6,
         deepseq,
         criterion,
         random,
