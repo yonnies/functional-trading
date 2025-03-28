@@ -214,6 +214,15 @@ unit_test_unsupported_currency =
        Left _    -> return ()  -- Expected failure, test passes
        Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
 
+unit_test_unsupported_stock :: Assertion
+unit_test_unsupported_stock = 
+  let model    = exampleModel today 30
+      contract = AcquireOn (date "05-02-2025") ((Scale (stockPrice MSFT)) (One GBP))
+      result   = eval model contract
+  in case result of
+       Left _    -> return ()  -- Expected failure, test passes
+       Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
+
 ----------------------------------------------------------------
 -- Generic helper to compare two evaluated contracts in HUnit
 ----------------------------------------------------------------
@@ -270,6 +279,7 @@ main = defaultMain $ testGroup "All Tests"
       , testCase "test_unprofitable_american" unit_test_unprofitable_american
       , testCase "test_expired_c_acquisition" unit_test_expired_c_acquisition
       , testCase "test_unsupported_currency"  unit_test_unsupported_currency
+      , testCase "test_unsupported_stock"     unit_test_unsupported_stock
       ]
   ]
 

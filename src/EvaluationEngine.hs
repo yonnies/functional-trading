@@ -242,7 +242,7 @@ evalDO' model (LiftD op o) = do
 evalDO' model (Lift2D op o1 o2) = do
   po1 <- evalDO model o1
   po2 <- evalDO model o2
-  return (ModelUtils.lift2 (binaryOpMap op) po1 po2)  
+  return (ModelUtils.lift2Preserve (binaryOpMap op) po1 po2)  
 evalDO' model (MaxObs o1 o2) = do
   po1 <- evalDO model o1
   po2 <- evalDO model o2

@@ -27,10 +27,6 @@ date s = case parseTimeM True defaultTimeLocale "%d-%m-%Y" s of
 today :: Date
 today = date "01-11-2024"
 
--- Used for contracts with infinite horizon (expiry date)
-infiniteHorizon :: Date
-infiniteHorizon = date "01-01-9999"
-
 -- Calculate the number of days between two dates
 daysBetween :: Date -> Date -> Days
 daysBetween d1 d2 = fromIntegral (diffDays d2 d1)
@@ -73,11 +69,6 @@ instance Num (Obs Double) where
   abs o  = LiftD UAbs o
   signum o  = LiftD USignum o
 
-instance Fractional (Obs Double) where
-  o1 / o2 = Lift2D BDiv o1 o2
-  recip = error "recip not implemented for Obs Double"
-  fromRational = error "fromRational not implemented for Obs Double"
-
 (%<), (%<=), (%=), (%>=), (%>) :: Ord Double => Obs Double -> Obs Double -> Obs Bool
 o1 %> o2 = Lift2B CGT o1 o2
 o1 %>= o2 = Lift2B CGE o1 o2
@@ -98,8 +89,7 @@ data UnaryOp
 data BinaryOp
   = BAdd
   | BSub
-  | BMul
-  | BDiv      
+  | BMul 
   deriving (Eq, Show, Ord)
 
 data CompareOp
@@ -120,7 +110,6 @@ binaryOpMap :: BinaryOp -> (Double -> Double -> Double)
 binaryOpMap BAdd = (+)
 binaryOpMap BSub = (-)
 binaryOpMap BMul = (*)
-binaryOpMap BDiv = (/)
 
 compareOpMap :: CompareOp -> (Double -> Double -> Bool)
 compareOpMap CLT = (<)
@@ -135,11 +124,14 @@ compareOpMap CGT = (>)
 data Currency = GBP | USD | EUR | BGN
     deriving (Eq, Show, Ord)
                               
-data Stock = DIS | TSLA | NVDA
+data Stock = DIS | TSLA | NVDA | MSFT
     deriving (Eq, Show, Ord)
 
 ----------------------------------------------------
 -- Lower case notation to prevent typo bugs 
+
+none :: Contract
+none = None
 
 one :: Currency -> Contract
 one = One
@@ -159,8 +151,8 @@ acquireOn = AcquireOn
 acquireOnBefore :: Date -> Contract -> Contract
 acquireOnBefore = AcquireOnBefore
 
-scale :: Obs Double -> Contract -> Contract
-scale = Scale
+scale_ :: Obs Double -> Contract -> Contract
+scale_ = Scale
 
 konst :: Double -> Obs Double
 konst = Konst
@@ -185,28 +177,28 @@ instance Arbitrary Contract where
 -- Generate random contracts with a size limit
 genContract :: Int -> Gen Contract
 genContract 0 = frequency
-  [ (1, pure None)
-  , (8, One <$> genRandomCurrency)
+  [ (1, pure none)
+  , (8, one <$> genRandomCurrency)
   ]
 genContract n = oneof
-  [ Give <$> genContract (n `div` 2)
+  [ give <$> genContract (n `div` 2)
   , do
       leftSize <- choose (0, n `div` 2)
       c1 <- genContract leftSize
       c2 <- genContract (n `div` 2 - leftSize)
-      oneof [ pure (And c1 c2), pure (Or c1 c2) ]
+      oneof [ pure (and_ c1 c2), pure (or_ c1 c2) ]
   , do
       c <- genContract (n `div` 2)
       someDate <- genRandomDate
-      oneof [ pure (AcquireOn someDate c), pure (AcquireOnBefore someDate c) ]
+      oneof [ pure (acquireOn someDate c), pure (acquireOnBefore someDate c) ]
   , do
       c <- genContract (n `div` 2)
       obs <- genObsDouble
-      pure (Scale obs c)
+      pure (scale_ obs c)
   , do
       c <- genContract (n `div` 2)
       obs <- genObsBool
-      pure (AcquireWhen obs c)
+      pure (acquireWhen obs c)
   ]
 
 -- Generate random numeric observables
@@ -214,28 +206,27 @@ genObsDouble :: Gen (Obs Double)
 genObsDouble = sized $ \n -> 
   if n <= 0 then baseCase else frequency
     [ (4, baseCase)
-    , (2, LiftD <$> genUnaryOp <*> resize (n-1) genObsDouble)
-    , (2, Lift2D <$> genBinaryOp <*> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
+    , (1, negate <$> resize (n-1) genObsDouble)
+    , (1, (+) <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
+    , (1, (-) <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
+    , (1, (*) <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
+    , (1, maxObs <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
     ]
   where
     baseCase = frequency
-      [ (3, Konst <$> arbitrary)
-      , (2, StockPrice <$> genRandomStock)
+      [ (3, konst <$> arbitrary)
+      , (2, stockPrice <$> genRandomStock)
       ]
 
 -- Generate random boolean observables
 genObsBool :: Gen (Obs Bool)
-genObsBool = Lift2B <$> genCompareOp <*> genObsDouble <*> genObsDouble
-
--- Generate random operators for expressions
-genUnaryOp :: Gen UnaryOp
-genUnaryOp = elements [UNegate]
-
-genBinaryOp :: Gen BinaryOp
-genBinaryOp = elements [BAdd, BSub, BMul]
-
-genCompareOp :: Gen CompareOp
-genCompareOp = elements [CLT, CLE, CEQ, CGE, CGT]
+genObsBool = frequency
+  [ (1, (%<) <$> genObsDouble <*> genObsDouble)
+  , (1, (%<=) <$> genObsDouble <*> genObsDouble)
+  , (1, (%=) <$> genObsDouble <*> genObsDouble)
+  , (1, (%>=) <$> genObsDouble <*> genObsDouble)
+  , (1, (%>) <$> genObsDouble <*> genObsDouble)
+  ]
 
 -- Generate random currencies and stocks
 genRandomCurrency :: Gen Currency
@@ -247,7 +238,7 @@ genRandomStock = elements [DIS, TSLA, NVDA]
 -- Generate a random date in a fixed range
 genRandomDate :: Gen Date
 genRandomDate = do
-  let startDay = today
+  let startDay = date "01-09-2024"
       endDay   = date "31-12-2030"
   offset <- choose (0, daysBetween startDay endDay)
   pure (addDays (toInteger offset) startDay)

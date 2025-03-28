@@ -1,7 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-
 module ModelUtils where
 
 import Control.DeepSeq (NFData(..))
@@ -39,30 +38,24 @@ instance (NFData a) => NFData (PR a) where
   rnf (PR slices) = rnf slices
 
 instance Num a => Num (PR a) where
-    (+) = lift2 (+)
-    (-) = lift2 (-)
-    (*) = lift2 (*)
+    (+) = lift2Preserve (+)
+    (-) = lift2Preserve (-)
+    (*) = lift2Preserve (*)
     abs = lift abs
     signum = lift signum
     fromInteger n = PR (initLatticeModel [fromInteger n] (\x -> x) (\x -> x))
     negate = lift negate
 
-instance (Num a, Fractional a) => Fractional (PR a) where
-  (/) = lift2 (/) 
-  recip = error "recip not implemented for processes"
-  fromRational = error "fromRational not implemented for processes"
-
-instance Eq a => Eq (PR a) where
-    (PR pr1) == (PR pr2) = pr1 == pr2
-
-instance Ord a => Ord (PR a) where  
-    (PR pr1) <= (PR pr2) = pr1 <= pr2
-
-
-
 lift :: (a -> b) -> PR a -> PR b
 lift f (PR xss) = PR [[f x | x <- xs] | xs <- xss]
 
+lift2Preserve :: (a -> a -> a) -> PR a -> PR a -> PR a
+lift2Preserve f (PR xss) (PR yss) = PR [ combine xs ys | (xs, ys) <- zip xss yss ]
+  where
+    combine [] ys = ys
+    combine xs [] = xs
+    combine (x:xs) (y:ys) = f x y : combine xs ys
+    
 lift2 :: (a -> b -> c) -> PR a -> PR b -> PR c
 lift2 f (PR xss) (PR yss) = PR [[f x y | (x,y) <- zip xs ys ] | (xs,ys) <- zip xss yss]
 
@@ -72,7 +65,7 @@ maximumValToday pr (PR []) = pr
 maximumValToday (PR (xs:xss)) (PR (ys:yss)) = if xs !! 0 > ys !! 0 then PR (xs:xss) else PR (ys:yss)
 
 maxPR :: Ord a => PR a -> PR a -> PR a
-maxPR = lift2 max
+maxPR = lift2Preserve max
 
 initLatticeModel :: ValSlice a -> (a -> a) -> (a -> a) -> LatticeModel a
 initLatticeModel prevLayer upFactor downFactor = 
@@ -181,9 +174,7 @@ exampleModel start step = Model {
                             in curSlice : restSlices
 
         snell' :: Date -> PR Double -> Either Error (PR Double)
-        snell' d (PR pr)
-            | (daysBetween start d) <= 0 = Right $ constPr' 0
-            | otherwise = Right $ PR (snell'' 1)
+        snell' d (PR pr) = Right $ PR (snell'' 1)
             where 
                 lattice_depth = ((daysBetween start d) `div` step) + 1     
                 underlying_process_len = length (take lattice_depth pr) 
@@ -230,4 +221,3 @@ exampleModel start step = Model {
             where
                 up x = x + vol * sqrt time
                 down x = x - vol * sqrt time
-
