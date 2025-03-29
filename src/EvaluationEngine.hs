@@ -66,8 +66,6 @@ optimiseContract c = case c of
       let c1' = optimiseContract c1
           c2' = optimiseContract c2
        in case (c1', c2') of
-            (None, x) -> x
-            (x, None) -> x
             (Scale obs1 c1'', Scale obs2 c2'') -> 
                 case (obs1, obs2) of
                     (Konst k, Konst j) | k == j && k >= 0 -> 

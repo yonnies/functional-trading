@@ -13,27 +13,27 @@ import Control.Monad.Except
 
 ---------------------------- Type-checker ----------------------------
 
-typeCheck :: Contract -> Date -> Either Error () 
-typeCheck None _ = Left "Error: Contract has no acquisition date set."
-typeCheck (One _) _ = Left "Error: Contract has no acquisition date set."
-typeCheck (Give c) d = do
-  typeCheck c d
-typeCheck (And c1 c2) d = do
-  typeCheck c1 d
-  typeCheck c2 d
-typeCheck (Or c1 c2) d = do
+validityCheck :: Contract -> Date -> Either Error () 
+validityCheck None _ = Left "Error: Contract has no acquisition date set."
+validityCheck (One _) _ = Left "Error: Contract has no acquisition date set."
+validityCheck (Give c) d = do
+  validityCheck c d
+validityCheck (And c1 c2) d = do
+  validityCheck c1 d
+  validityCheck c2 d
+validityCheck (Or c1 c2) d = do
   -- check for error in either here
   -- if both have an error throw an error
   -- if only one has an error return just the contract without the error
-  typeCheck c1 d
-  typeCheck c2 d
-typeCheck (Scale _ c) d =
-  typeCheck c d
-typeCheck (AcquireOn d2 _) d1 
+  validityCheck c1 d
+  validityCheck c2 d
+validityCheck (Scale _ c) d =
+  validityCheck c d
+validityCheck (AcquireOn d2 _) d1 
   | d2 < d1 = Left "Error: Top level contract with an expiry earlier than the model start date is prohibited."
   | otherwise = Right ()
-typeCheck (AcquireWhen _ _) _ = Right ()
-typeCheck (AcquireOnBefore d2 _) d1 
+validityCheck (AcquireWhen _ _) _ = Right ()
+validityCheck (AcquireOnBefore d2 _) d1 
   | d2 < d1 = Left "Error: Top level contract with an expiry earlier than the model start date is prohibited."
   | otherwise = Right ()
 
@@ -64,8 +64,6 @@ optimiseContract c = case c of
       let c1' = optimiseContract c1
           c2' = optimiseContract c2
        in case (c1', c2') of
-            (None, x) -> x
-            (x, None) -> x
             (Scale obs1 c1'', Scale obs2 c2'') -> 
                 case (obs1, obs2) of
                     (Konst k, Konst j) | k == j && k >= 0 -> 
@@ -100,43 +98,14 @@ optimiseContract c = case c of
 
 ----------------------------- Evaluation -----------------------------
 
--- ---------------------------------------
--- -- Cache
--- ---------------------------------------
--- data Key
---   = KContract Contract
---   | KObsDouble (Obs Double)
---   | KObsBool   (Obs Bool)
---   deriving (Eq, Ord, Show)
-
--- data Val
---   = VDouble (PR Double)
---   | VBool   (PR Bool)
---   deriving (Show)
-
--- type Cache = Map.Map Key Val
-
--- -- We'll keep an EvalState with that single cache
--- data EvalState = EvalState
---   { cache :: Cache
---   }
-
--- -- The monad: we carry our cache (EvalState) in StateT,
--- -- and can fail with String errors using Either String
--- type EvalM a = StateT EvalState (Either String) a
-
--- emptyEvalState :: EvalState
--- emptyEvalState = EvalState { cache = Map.empty }
-
 type EvalM a = Either String a
-
 
 ---------------------------------------
 -- Top-level evaluation
 ---------------------------------------
 eval :: Model -> Contract -> EvalM (PR Double)
 eval model c = do
-  _ <- typeCheck c (startDate model)
+  _ <- validityCheck c (startDate model)
   let optC = optimiseContract c
   evalC model optC (startDate model)
 

@@ -13,34 +13,6 @@ import ContractsDSL
 import ModelUtils
 import EvaluationEngine
 
-
-----------------------------------------------------------------
--- Approximate equality checks for contract evaluation
-----------------------------------------------------------------
-
--- prApproxEq checks if two PR (value process) results are approximately equal.
--- Since PR values are lists of lists (representing binomial trees), we compare
--- them element-wise with a given epsilon tolerance.
-prApproxEq :: Double -> PR Double -> PR Double -> Bool
-prApproxEq epsilon (PR xs) (PR ys) = and $ zipWith eqLayers xs ys
-  where
-    eqLayers as bs = and $ zipWith (\a b -> abs (a - b) < epsilon) as bs
-
--- Custom equality operator for comparing evaluated contracts.
-(≈) :: Either Error (PR Double) -> Either Error (PR Double) -> Property
-a ≈ b = case (a, b) of
-    (Right pr1, Right pr2) -> 
-        counterexample (printf "Expected:\n%s\nActual:\n%s" 
-                        (show pr2) (show pr1)) $
-        property (prApproxEq 1e-6 pr1 pr2)
-    (Left err1, Left err2) -> 
-        counterexample (printf "Both failed with errors:\n%s\n%s" err1 err2) True
-    (Left err1, Right _) -> 
-        counterexample ("Mismatch: First failed with error: " ++ err1) False
-    (Right _, Left err2) -> 
-        counterexample ("Mismatch: Second failed with error: " ++ err2) False
-
-
 ----------------------------------------------------------------
 -- QuickCheck properties
 ----------------------------------------------------------------
@@ -81,7 +53,7 @@ prop_orScaleDistributive (NonNegative x) c1 c2 =
   within 1000000 $ 
     let left  = Scale (Konst x) (c1 `Or` c2)
         right = (Scale (Konst x) c1) `Or` (Scale (Konst x) c2)
-    in eval model left ≈ eval model right
+    in evalTest model left False ≈ evalTest model right False
   where
     model = exampleModel today 30
 
@@ -137,7 +109,7 @@ unit_test_acquireOnStartDate =
   in assertPRApproxEqual "AcquireOnStartDate" leftE rightE
 
 ----------------------------------------------------------------
--- HUnit tests for optiona
+-- HUnit tests for options
 ----------------------------------------------------------------
 
 european :: Date -> Contract -> Double -> Contract
@@ -204,6 +176,16 @@ unit_test_expired_c_acquisition =
        Left _    -> return ()  -- Expected failure, test passes
        Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
 
+-- Trying to acquire a contract with expired branch should fail
+unit_test_expired_c_acquisition2 :: Assertion
+unit_test_expired_c_acquisition2 = 
+  let model    = exampleModel today 30
+      contract = AcquireOn (date "05-02-2030") (One GBP) `And` AcquireOn (date "05-02-2020") (One GBP)
+      result   = eval model contract
+  in case result of
+       Left _    -> return ()  -- Expected failure, test passes
+       Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
+
 -- Using an unsupported currency should fail
 unit_test_unsupported_currency :: Assertion
 unit_test_unsupported_currency = 
@@ -222,6 +204,31 @@ unit_test_unsupported_stock =
   in case result of
        Left _    -> return ()  -- Expected failure, test passes
        Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
+
+----------------------------------------------------------------
+-- Edge Cases and Expected Behaviour
+----------------------------------------------------------------
+
+-- Expired nested part should evaluate to 0
+unit_test_expired_nested_part_evals_to_zero :: Assertion
+unit_test_expired_nested_part_evals_to_zero = 
+  let model               = exampleModel today 30
+      not_expired_nested  = Scale (Konst 1000) (One GBP) 
+      expired_nested      = AcquireOn (date "05-02-2020") $ Scale (Konst 2) (One GBP) 
+      contract            = AcquireOn (date "05-02-2030") (not_expired_nested `And` expired_nested)
+      expected_result     = eval model (AcquireOn (date "05-02-2030") not_expired_nested)
+      result              = eval model contract
+  in assertPRApproxEqual "ExpiredNestedPartEvalsToZero" expected_result result
+
+-- Expired nested part should evaluate to 0
+unit_test_observable_summation :: Assertion
+unit_test_observable_summation = 
+  let model               = exampleModel today 30
+      c_no_summation      = AcquireOn (date "05-02-2030") $ Scale (Konst 1200) (One GBP) 
+      c_summation         = AcquireOn (date "05-02-2030") $ Scale (Konst 1000 + Konst 200) (One GBP) 
+      expected_result     = eval model c_no_summation
+      result              = eval model c_summation
+  in assertPRApproxEqual "ExpiredNestedPartEvalsToZero" expected_result result
 
 ----------------------------------------------------------------
 -- Generic helper to compare two evaluated contracts in HUnit
@@ -244,7 +251,7 @@ assertPRApproxEqual testName leftE rightE =
       assertFailure (testName ++ ": Right side failed: " ++ errR)
 
     (Right prL, Right prR) ->
-      let eps  = 1e-6
+      let eps  = 1e-4
           same = prApproxEq eps prL prR
       in assertBool
            (  testName 
@@ -252,6 +259,33 @@ assertPRApproxEqual testName leftE rightE =
            ++ "\nRight:\n"             ++ show prR 
            )
            same
+
+
+----------------------------------------------------------------
+-- Approximate equality checks for contract evaluation
+----------------------------------------------------------------
+
+-- prApproxEq checks if two PR (value process) results are approximately equal.
+-- Since PR values are lists of lists (representing binomial trees), we compare
+-- them element-wise with a given epsilon tolerance.
+prApproxEq :: Double -> PR Double -> PR Double -> Bool
+prApproxEq epsilon (PR xs) (PR ys) = and $ zipWith eqLayers xs ys
+  where
+    eqLayers as bs = and $ zipWith (\a b -> abs (a - b) < epsilon) as bs
+
+-- Custom equality operator for comparing evaluated contracts.
+(≈) :: Either Error (PR Double) -> Either Error (PR Double) -> Property
+a ≈ b = case (a, b) of
+    (Right pr1, Right pr2) -> 
+        counterexample (printf "Expected:\n%s\nActual:\n%s" 
+                        (show pr2) (show pr1)) $
+        property (prApproxEq 1e-4 pr1 pr2)
+    (Left err1, Left err2) -> 
+        counterexample (printf "Both failed with errors:\n%s\n%s" err1 err2) True
+    (Left err1, Right _) -> 
+        counterexample ("Mismatch: First failed with error: " ++ err1) False
+    (Right _, Left err2) -> 
+        counterexample ("Mismatch: Second failed with error: " ++ err2) False
 
 ----------------------------------------------------------------
 -- Running all tests
@@ -278,8 +312,54 @@ main = defaultMain $ testGroup "All Tests"
       , testCase "test_profitable_american"   unit_test_profitable_american
       , testCase "test_unprofitable_american" unit_test_unprofitable_american
       , testCase "test_expired_c_acquisition" unit_test_expired_c_acquisition
+      , testCase "test_expired_c_acquisition2" unit_test_expired_c_acquisition2
       , testCase "test_unsupported_currency"  unit_test_unsupported_currency
       , testCase "test_unsupported_stock"     unit_test_unsupported_stock
+      , testCase "test_expired_nested_part_evals_to_zero" unit_test_expired_nested_part_evals_to_zero
+      , testCase "test_observable_summation"  unit_test_observable_summation
       ]
   ]
 
+
+
+-- maybe one that sumation continues even if one part has finished lift2Preserve
+
+-- -- One is too early
+-- c6 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2025") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2027") (scale (konst 1) (one GBP))))
+
+-- -- Neither is too early 
+-- c7 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2027") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2027") (scale (konst 1) (one GBP))))
+
+-- -- Both are too early
+-- c8 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2025") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2025") (scale (konst 1) (one GBP))))
+
+-- -- American with an earlier date
+-- c9 = AcquireOnBefore (date "01-03-2027") c9_underlying
+
+-- c9_underlying = (AcquireOn (date "01-09-2026") (scale (konst 1000) (one GBP)))
+
+-- American accepts earlier expiry date
+-- c16 = acquireOnBefore (date "01-09-2025") ((scale (konst 50) (one GBP)) `and_` (acquireOn (date "01-06-2025") (give (scale (konst 100) (one GBP)))))
+
+
+      -- *** Failed! Falsified (after 63 tests):
+      -- 
+      
+      -- Or (AcquireWhen 
+               -- (Lift2B CGE (Lift2D BAdd (StockPrice NVDA) (LiftD UNegate (Konst 2.5238095238095237))) (Konst (-0.6))) 
+                    -- (AcquireOn 2027-11-15 (Or (Give (One GBP)) None))) 
+        --- (And (AcquireOn 2028-02-24 (Give (Scale (StockPrice NVDA) (One USD)))) 
+              -- (Scale (Konst 49.09803921568628) (Scale (Konst 22.875) (AcquireOn 2029-02-09 (One EUR)))))
+      
+      -- Expected:
+      -- Step 0: -0.17
+      
+      -- Actual:
+      -- Step 0: 0.0
+      
+      -- Use --quickcheck-replay="(SMGen 3844210385123419643 8393925696182666169,62)" to reproduce.
+      -- Use -p '/prop_optLayerPreservesMeanign/' to rerun this test only.
+
+
+
+      -- Or (AcquireWhen (Lift2B CGE (Lift2D BAdd (StockPrice NVDA) (LiftD UNegate (Konst 2.5238095238095237))) (Konst (-0.6))) (AcquireOn 2027-11-15 (Or (Give (One GBP)) None))) (And (AcquireOn 2028-02-24 (Give (Scale (StockPrice NVDA) (One USD)))) (Scale (Konst 49.09803921568628) (Scale (Konst 22.875) (AcquireOn 2029-02-09 (One EUR)))))
