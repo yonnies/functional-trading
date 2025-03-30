@@ -16,11 +16,15 @@ evalTest model c optContract= do
 
 main :: IO ()
 main = 
-    let c = Or (AcquireWhen (Lift2B CGE (Lift2D BAdd (StockPrice NVDA) (LiftD UNegate (Konst 2.5238095238095237))) (Konst (-0.6))) (AcquireOn (date "15-11-2027") (Or (Give (One GBP)) None))) (And (AcquireOn (date "24-02-2028") (Give (Scale (StockPrice NVDA) (One USD)))) (Scale (Konst 123.1176470588236) (AcquireOn (date "09-02-2029") (One EUR))))
-        opt_c = optimiseContract c 
+    let 
+        not_expired_nested  = (One GBP)
+        expired_nested      = AcquireOn (date "05-02-2025") $ Scale (Konst 2000) (One GBP) 
+        combined = AcquireOnBefore (date "05-02-2030") (not_expired_nested `And` expired_nested)
+        evalResult1 = eval model combined
+        -- evalResult2 = eval model c2
         model = exampleModel today 30
     in do
-        putStrLn (show c)
-        putStrLn (show opt_c)
-        putStrLn (show $ evalTest model c True)
-        putStrLn (show $ evalTest model c False)
+        putStrLn (show $ evalResult1)
+        -- putStrLn (show $ evalResult2)
+
+        

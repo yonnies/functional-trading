@@ -214,13 +214,27 @@ unit_test_expired_nested_part_evals_to_zero :: Assertion
 unit_test_expired_nested_part_evals_to_zero = 
   let model               = exampleModel today 30
       not_expired_nested  = Scale (Konst 1000) (One GBP) 
-      expired_nested      = AcquireOn (date "05-02-2020") $ Scale (Konst 2) (One GBP) 
+      expired_nested      = AcquireOn (date "05-02-2025") $ Scale (Konst 2) (One GBP) 
       contract            = AcquireOn (date "05-02-2030") (not_expired_nested `And` expired_nested)
       expected_result     = eval model (AcquireOn (date "05-02-2030") not_expired_nested)
       result              = eval model contract
   in assertPRApproxEqual "ExpiredNestedPartEvalsToZero" expected_result result
 
--- Expired nested part should evaluate to 0
+unit_test_american_allows_expired_underlying :: Assertion
+unit_test_american_allows_expired_underlying = case (evalResult1, evalResult2) of
+  (Right (PR pr1), Right (PR pr2)) -> 
+    assertBool "Combined contract should have higher value" (pr1 > pr2)
+  (Left err, _) -> assertFailure $ "Eval error: " ++ err
+  (_, Left err) -> assertFailure $ "Eval error: " ++ err
+  where
+      model               = exampleModel today 30
+      not_expired_nested  = (One GBP) 
+      expired_nested      = AcquireOn (date "05-02-2025") $ Scale (Konst 2000) (One GBP) 
+      contract            = AcquireOnBefore (date "05-02-2030") (not_expired_nested `And` expired_nested)
+      evalResult1         = eval model contract
+      evalResult2         = eval model (AcquireOnBefore (date "05-02-2030") not_expired_nested)
+
+-- Summation works as expexted
 unit_test_observable_summation :: Assertion
 unit_test_observable_summation = 
   let model               = exampleModel today 30
@@ -229,6 +243,21 @@ unit_test_observable_summation =
       expected_result     = eval model c_no_summation
       result              = eval model c_summation
   in assertPRApproxEqual "ExpiredNestedPartEvalsToZero" expected_result result
+
+-- Compound contract of 2 contracts takes the expiry date of the bigger one
+unit_test_and_takes_later_expiry :: Assertion
+unit_test_and_takes_later_expiry = case (evalResult1, evalResult2) of
+  (Right (PR pr1), Right (PR pr2)) -> 
+    assertEqual "Step count mismatch" (length pr2) (length pr1)
+  (Left err, _) -> assertFailure $ "Eval error: " ++ err
+  (_, Left err) -> assertFailure $ "Eval error: " ++ err
+  where
+    model = exampleModel today 30
+    c1 = AcquireOn (date "05-02-2025") (One GBP)
+    c2 = AcquireOn (date "05-02-2030") (One GBP)
+    combined = And c1 c2
+    evalResult1 = eval model combined
+    evalResult2 = eval model c2
 
 ----------------------------------------------------------------
 -- Generic helper to compare two evaluated contracts in HUnit
@@ -316,50 +345,8 @@ main = defaultMain $ testGroup "All Tests"
       , testCase "test_unsupported_currency"  unit_test_unsupported_currency
       , testCase "test_unsupported_stock"     unit_test_unsupported_stock
       , testCase "test_expired_nested_part_evals_to_zero" unit_test_expired_nested_part_evals_to_zero
+      , testCase "test_american_allows_expired_underlying" unit_test_american_allows_expired_underlying
       , testCase "test_observable_summation"  unit_test_observable_summation
+      , testCase "test_and_takes_later_expiry"  unit_test_and_takes_later_expiry
       ]
   ]
-
-
-
--- maybe one that sumation continues even if one part has finished lift2Preserve
-
--- -- One is too early
--- c6 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2025") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2027") (scale (konst 1) (one GBP))))
-
--- -- Neither is too early 
--- c7 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2027") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2027") (scale (konst 1) (one GBP))))
-
--- -- Both are too early
--- c8 = AcquireOn (date "01-03-2026") ((AcquireOn (date "01-03-2025") (scale (konst 1000) (one GBP))) `Or` (AcquireOn (date "01-03-2025") (scale (konst 1) (one GBP))))
-
--- -- American with an earlier date
--- c9 = AcquireOnBefore (date "01-03-2027") c9_underlying
-
--- c9_underlying = (AcquireOn (date "01-09-2026") (scale (konst 1000) (one GBP)))
-
--- American accepts earlier expiry date
--- c16 = acquireOnBefore (date "01-09-2025") ((scale (konst 50) (one GBP)) `and_` (acquireOn (date "01-06-2025") (give (scale (konst 100) (one GBP)))))
-
-
-      -- *** Failed! Falsified (after 63 tests):
-      -- 
-      
-      -- Or (AcquireWhen 
-               -- (Lift2B CGE (Lift2D BAdd (StockPrice NVDA) (LiftD UNegate (Konst 2.5238095238095237))) (Konst (-0.6))) 
-                    -- (AcquireOn 2027-11-15 (Or (Give (One GBP)) None))) 
-        --- (And (AcquireOn 2028-02-24 (Give (Scale (StockPrice NVDA) (One USD)))) 
-              -- (Scale (Konst 49.09803921568628) (Scale (Konst 22.875) (AcquireOn 2029-02-09 (One EUR)))))
-      
-      -- Expected:
-      -- Step 0: -0.17
-      
-      -- Actual:
-      -- Step 0: 0.0
-      
-      -- Use --quickcheck-replay="(SMGen 3844210385123419643 8393925696182666169,62)" to reproduce.
-      -- Use -p '/prop_optLayerPreservesMeanign/' to rerun this test only.
-
-
-
-      -- Or (AcquireWhen (Lift2B CGE (Lift2D BAdd (StockPrice NVDA) (LiftD UNegate (Konst 2.5238095238095237))) (Konst (-0.6))) (AcquireOn 2027-11-15 (Or (Give (One GBP)) None))) (And (AcquireOn 2028-02-24 (Give (Scale (StockPrice NVDA) (One USD)))) (Scale (Konst 49.09803921568628) (Scale (Konst 22.875) (AcquireOn 2029-02-09 (One EUR)))))

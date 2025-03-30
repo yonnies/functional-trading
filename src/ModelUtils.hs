@@ -38,9 +38,9 @@ instance (NFData a) => NFData (PR a) where
   rnf (PR slices) = rnf slices
 
 instance Num a => Num (PR a) where
-    (+) = lift2Preserve (+)
-    (-) = lift2Preserve (-)
-    (*) = lift2Preserve (*)
+    (+) = lift2 (+)
+    (-) = lift2 (-)
+    (*) = lift2 (*)
     abs = lift abs
     signum = lift signum
     fromInteger n = PR (initLatticeModel [fromInteger n] (\x -> x) (\x -> x))
@@ -49,12 +49,13 @@ instance Num a => Num (PR a) where
 lift :: (a -> b) -> PR a -> PR b
 lift f (PR xss) = PR [[f x | x <- xs] | xs <- xss]
 
-lift2Preserve :: (a -> a -> a) -> PR a -> PR a -> PR a
-lift2Preserve f (PR xss) (PR yss) = PR [ combine xs ys | (xs, ys) <- zip xss yss ]
-  where
-    combine [] ys = ys
-    combine xs [] = xs
-    combine (x:xs) (y:ys) = f x y : combine xs ys
+lift2Preserve :: (a -> a -> a) -> PR a -> PR a -> PR a    
+lift2Preserve f (PR xss) (PR yss) = PR $ combine xss yss
+    where
+        combine xss [] = xss
+        combine [] yss = yss
+        combine (xs:xss) (ys:yss) = 
+            [f x y | (x, y) <- zip xs ys] : combine xss yss
     
 lift2 :: (a -> b -> c) -> PR a -> PR b -> PR c
 lift2 f (PR xss) (PR yss) = PR [[f x y | (x,y) <- zip xs ys ] | (xs,ys) <- zip xss yss]
