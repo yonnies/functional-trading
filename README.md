@@ -12,37 +12,9 @@
 - [x] implement a contract that requires a Boolean obseravable
 - [ ] benchmark caching vs graphs
 - [ ] benchmark with without optimisation layer
-- [ ] create graphical representation of the value process
+- [x] create graphical representation of the value process
 - [x] update eval error handling
-- [ ] write more quickCheck property tests 
-
-<!-- ### Run Benchmarking 
-1. Clear cabal.project.local
-
-add
-benchmarks: True
-
-run 
-cabal build 
-cabal bench 
-in the terminal
-
-### Run Tests with coverage
-1. Clear cabal.project.local
-
-add
-ignore-project: False
-tests: True
-coverage: True
-library-coverage: True
-
-run 
-cabal clean
-cabal configure --enable-tests --enable-coverage
-cabal build --enable-coverage
-cabal test --enable-coverage
-
-### Run Main -->
+- [x] write more quickCheck property tests 
 
 
 ## Prerequisites
@@ -73,7 +45,6 @@ tests: True
 coverage: True
 library-coverage: True" > cabal.project.local
 ```
-
 
 ### Step 2: Clean, configure, and run tests
 ```bash

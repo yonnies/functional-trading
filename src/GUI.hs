@@ -9,6 +9,42 @@ import ContractsDSL
 import ModelUtils
 import EvaluationEngine
 
+
+europeanStockCall :: Date -> Double -> Stock -> Contract
+europeanStockCall t strikePrice stk = 
+    acquireOn t 
+        (Scale (stockPrice stk) (one GBP) `And` 
+        give (Scale (Konst strikePrice) (one GBP))) 
+    `Or` acquireOn t none
+
+
+europeanStockPut :: Date -> Double -> Stock -> Contract
+europeanStockPut t strikePrice stk = 
+    acquireOn t 
+        (Scale (Konst strikePrice) (one GBP) `And` 
+        give (Scale (stockPrice stk) (one GBP)))
+    `Or` acquireOn t none
+
+
+americanStockCall :: Date -> Double -> Stock -> Contract
+americanStockCall t strikePrice stk = 
+    acquireOnBefore t 
+        (Scale (stockPrice stk) (one GBP) `And` 
+        give (Scale (Konst strikePrice) (one GBP))) 
+    `Or` acquireOn t none
+
+
+americanStockPut :: Date -> Double -> Stock -> Contract
+americanStockPut t strikePrice stk = 
+    acquireOnBefore t 
+        (Scale (Konst strikePrice) (one GBP) `And` 
+        give (Scale (stockPrice stk) (one GBP)))
+    `Or` acquireOn t none
+
+
+zcdb :: Date -> Double -> Currency -> Contract
+zcdb t val cur = AcquireOn t (Scale (Konst val) (One cur))
+
 mainGUI :: IO ()
 mainGUI = do
     startGUI defaultConfig { jsStatic = Just "." } setup
@@ -18,13 +54,18 @@ setup window = do
     -- Add type annotation to resolve the ambiguous type
     runFunction $ ffi ("document.title = %1" :: String) ("Contract Evaluator" :: String)
 
+    -- Link the external CSS file
+    UI.addStyleSheet window "style.css"
+
     -- Input elements (with explicit numeric types)
     contractInput <- UI.textarea
         # set UI.rows (show (10 :: Int))
         # set UI.cols (show (50 :: Int))
-        # set UI.value "AcquireOn (date \"05-02-2025\") (One GBP)"
+        # set UI.value "AcquireOn (date \"05-02-2026\") (One GBP)"
     evalButton <- UI.button # set UI.text "Evaluate"
-    resultOutput <- UI.div # set UI.style [("border", "1px solid black"), ("padding", "10px")]
+    resultOutput <- UI.div # set UI.style [ ("padding", "10px")]
+
+    
 
     -- Layout (unchanged)
     UI.getBody window #+
@@ -47,7 +88,7 @@ setup window = do
                     Right pr -> void $ element resultOutput # set UI.html (formatPR pr)
     where
         parseContract :: String -> Either String Contract
-        parseContract s = Right $ AcquireOn (date "05-02-2025") (One GBP)
+        parseContract s = Right $ AcquireOn (date "05-02-2026") (One GBP)
         
         formatPR :: PR Double -> String
         formatPR (PR layers) = unlines $
@@ -55,11 +96,11 @@ setup window = do
             , "<rect width='100%' height='100%' fill='white'/>"
             ] ++ concatMap renderLayer (zip [0..] layers) ++ ["</svg>"]
             where
-                nodeRadius = 15
-                xSpacing = 120 -- Horizontal spacing between layers
+                nodeRadius = 23
+                xSpacing = 80 -- Horizontal spacing between layers
                 ySpacing = 80  -- Vertical spacing between nodes in the same layer
                 svgWidth = 800
-                svgHeight = 600
+                svgHeight = 400
 
                 -- Calculate the position of a node (left-to-right layout)
                 nodePosition :: Int -> Int -> (Double, Double)
@@ -85,8 +126,9 @@ setup window = do
                 renderNode :: Int -> (Int, Double) -> String
                 renderNode layerIndex (nodeIndex, value) =
                     let (x, y) = nodePosition layerIndex nodeIndex
-                    in "<circle cx='" ++ show x ++ "' cy='" ++ show y ++ "' r='" ++ show nodeRadius ++ "' fill='lightblue' stroke='black' />"
-                        ++ "<text x='" ++ show (x - 10) ++ "' y='" ++ show (y + 5) ++ "' font-size='10' fill='black'>" ++ printf "%.2f" value ++ "</text>"
+                        halfSize = fromIntegral nodeRadius -- Half the size of the square
+                    in "<rect x='" ++ show (x - halfSize) ++ "' y='" ++ show (y - halfSize) ++ "' width='" ++ show (2 * halfSize) ++ "' height='" ++ show (2 * halfSize) ++ "' fill='lightblue' stroke='black' />"
+                        ++ "<text x='" ++ show (x - 10) ++ "' y='" ++ show (y + 5) ++ "' font-size='15' fill='black'>" ++ printf "%.2f" value ++ "</text>"
 
                 -- Render edges between layers
                 renderEdge :: Int -> Int -> [String]

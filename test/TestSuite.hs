@@ -162,6 +162,25 @@ unit_test_unprofitable_american =
       rightE = eval model underlying
   in assertPRApproxEqual "UnprofitableAmerican" leftE rightE
 
+
+unit_test_american_vs_eu :: Assertion
+unit_test_american_vs_eu = 
+  let model          = exampleModel today 30
+      europeanC      = AcquireOn (date "05-06-2025") (Scale (stockPrice RACE) (One GBP))
+      americanC      = AcquireOnBefore (date "05-06-2025") (Scale (stockPrice RACE) (One GBP))
+      europeanResult = eval model europeanC
+      americanResult = eval model americanC
+  in case (europeanResult, americanResult) of
+       (Right (PR europeanLayers), Right (PR americanLayers)) ->
+         let europeanValue = sum (map sum europeanLayers)
+             americanValue = sum (map sum americanLayers)
+         in assertBool
+              ("Expected American value to be greater than European value, but got: "
+               ++ "European = " ++ show europeanValue ++ ", American = " ++ show americanValue)
+              (americanValue > europeanValue)
+       (Left err, _) -> assertFailure ("European evaluation failed: " ++ err)
+       (_, Left err) -> assertFailure ("American evaluation failed: " ++ err)
+
 ----------------------------------------------------------------
 -- HUnit tests for invalid contracts
 ----------------------------------------------------------------
@@ -204,6 +223,7 @@ unit_test_unsupported_stock =
   in case result of
        Left _    -> return ()  -- Expected failure, test passes
        Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
+
 
 ----------------------------------------------------------------
 -- Edge Cases and Expected Behaviour
@@ -323,30 +343,31 @@ a ≈ b = case (a, b) of
 main :: IO ()
 main = defaultMain $ testGroup "All Tests"
   [ testGroup "Structural (no eval needed)"
-      [ testProperty "doubleNegation"         prop_doubleNegation
-      , testProperty "optimiseIdempotent"     prop_optimise_idempotent
+      [ testProperty "doubleNegation"           prop_doubleNegation
+      , testProperty "optimiseIdempotent"       prop_optimise_idempotent
       ]
   , testGroup "Valuation properties"
       [ testProperty "prop_optLayerPreservesMeanign" prop_optLayerPreservesMeanign
-      , testProperty "orScaleDistributive"    prop_orScaleDistributive
-      , testProperty "giveNegates"            prop_give_negates
-      , testProperty "andAdds"                prop_and_adds
-      , testProperty "orMax"                  prop_or_max
+      , testProperty "orScaleDistributive"      prop_orScaleDistributive
+      , testProperty "giveNegates"              prop_give_negates
+      , testProperty "andAdds"                  prop_and_adds
+      , testProperty "orMax"                    prop_or_max
       ]
   , testGroup "HUnit tests"
-      [ testCase "test_PR_structure"          unit_test_PR_structure
-      , testCase "test_acquireOnStartDate"    unit_test_acquireOnStartDate
-      , testCase "test_profitable_european"   unit_test_profitable_european
-      , testCase "test_unprofitable_european" unit_test_unprofitable_european
-      , testCase "test_profitable_american"   unit_test_profitable_american
-      , testCase "test_unprofitable_american" unit_test_unprofitable_american
-      , testCase "test_expired_c_acquisition" unit_test_expired_c_acquisition
-      , testCase "test_expired_c_acquisition2" unit_test_expired_c_acquisition2
-      , testCase "test_unsupported_currency"  unit_test_unsupported_currency
-      , testCase "test_unsupported_stock"     unit_test_unsupported_stock
+      [ testCase "test_PR_structure"            unit_test_PR_structure
+      , testCase "test_acquireOnStartDate"      unit_test_acquireOnStartDate
+      , testCase "test_profitable_european"     unit_test_profitable_european
+      , testCase "test_unprofitable_european"   unit_test_unprofitable_european
+      , testCase "test_profitable_american"     unit_test_profitable_american
+      , testCase "test_unprofitable_american"   unit_test_unprofitable_american
+      , testCase "test_american_vs_eu"          unit_test_american_vs_eu
+      , testCase "test_expired_c_acquisition"   unit_test_expired_c_acquisition
+      , testCase "test_expired_c_acquisition2"  unit_test_expired_c_acquisition2
+      , testCase "test_unsupported_currency"    unit_test_unsupported_currency
+      , testCase "test_unsupported_stock"       unit_test_unsupported_stock
       , testCase "test_expired_nested_part_evals_to_zero" unit_test_expired_nested_part_evals_to_zero
       , testCase "test_american_allows_expired_underlying" unit_test_american_allows_expired_underlying
-      , testCase "test_observable_summation"  unit_test_observable_summation
+      , testCase "test_observable_summation"    unit_test_observable_summation
       , testCase "test_and_takes_later_expiry"  unit_test_and_takes_later_expiry
       ]
   ]

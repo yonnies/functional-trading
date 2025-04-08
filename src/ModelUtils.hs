@@ -139,10 +139,19 @@ exampleModel start step = Model {
                     [ (DIS, stockRates 109.12 0.2253 (stepSizeD / 30)) 
                     , (TSLA, stockRates 338.74 0.9899 (stepSizeD / 30))
                     , (NVDA, stockRates 140.15 0.3821 (stepSizeD / 30))
+                    , (RACE, PR $ (stockRatesWithSpike 401.88 3 1.5)) -- Dummy stock with spike
                     ]
 
                 stockRates :: Double -> Double -> Double -> PR Double
                 stockRates initVal vol timeS = PR $ _CCRModel initVal vol timeS
+
+                -- For exchange rates and stock prices 
+                stockRatesWithSpike :: Double -> Int -> Double -> LatticeModel Double
+                stockRatesWithSpike value spikeLayer spikeMultiplier = 
+                    let generateLayer n
+                            | n == spikeLayer = map (* spikeMultiplier) (replicate (n + 1) value) -- Apply spike
+                            | otherwise = replicate (n + 1) value -- Constant values
+                    in [generateLayer n | n <- [0..]] -- Infinite lattice
 
         -- Volatility is annualised
         interest_rates :: LatticeModel Double

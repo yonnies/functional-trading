@@ -124,7 +124,7 @@ compareOpMap CGT = (>)
 data Currency = GBP | USD | EUR | BGN
     deriving (Eq, Show, Ord)
                               
-data Stock = DIS | TSLA | NVDA | MSFT
+data Stock = DIS | TSLA | NVDA | MSFT | RACE
     deriving (Eq, Show, Ord)
 
 ----------------------------------------------------

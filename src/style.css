@@ -1,0 +1,18 @@
+body {
+    background-color: #b36565;
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    color: #333;
+}
+
+div {
+    border: 2px solid rgb(215, 0, 0);
+    padding: 10px;
+    background-color: #ffffff;
+}
+
+text {
+    color: #0000ff;
+}
