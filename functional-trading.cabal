@@ -10,6 +10,7 @@ library
         EvaluationEngine
         EvaluationEngineNoCache
         ModelUtils
+        GUI
         Main
     build-depends:
         base >=4.14 && <5,
@@ -17,7 +18,8 @@ library
         containers,
         QuickCheck,
         mtl,
-        deepseq
+        deepseq,
+        threepenny-gui >= 0.9
     default-language: Haskell2010
 
 executable functional-trading
@@ -31,8 +33,10 @@ executable functional-trading
         mtl,
         QuickCheck,
         deepseq,
-        functional-trading
+        functional-trading,
+        threepenny-gui >= 0.9
     other-modules:
+        GUI
         ContractsDSL
         EvaluationEngine
         ModelUtils
