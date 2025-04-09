@@ -4,6 +4,7 @@
 module ModelUtils where
 
 import Control.DeepSeq (NFData(..))
+import Data.Time (addDays)
 
 import ContractsDSL
 
@@ -139,19 +140,22 @@ exampleModel start step = Model {
                     [ (DIS, stockRates 109.12 0.2253 (stepSizeD / 30)) 
                     , (TSLA, stockRates 338.74 0.9899 (stepSizeD / 30))
                     , (NVDA, stockRates 140.15 0.3821 (stepSizeD / 30))
-                    , (RACE, PR $ (stockRatesWithSpike 401.88 3 1.5)) -- Dummy stock with spike
+                    , (RACE, PR $ (stockWithDividend 401.88 (addDays 90 start) 20)) -- Dummy stock with spike
                     ]
 
                 stockRates :: Double -> Double -> Double -> PR Double
                 stockRates initVal vol timeS = PR $ _CCRModel initVal vol timeS
 
-                -- For exchange rates and stock prices 
-                stockRatesWithSpike :: Double -> Int -> Double -> LatticeModel Double
-                stockRatesWithSpike value spikeLayer spikeMultiplier = 
-                    let generateLayer n
-                            | n == spikeLayer = map (* spikeMultiplier) (replicate (n + 1) value) -- Apply spike
+                -- Generate a stock process with a dividend applied at a specific layer
+                stockWithDividend :: Double -> Date -> Double -> LatticeModel Double
+                stockWithDividend value dividendDate dividend = [generateLayer n | n <- [0..]]
+                    where
+                        dividendLayer = (daysBetween start dividendDate) `div` step
+                        -- Generate a lattice with a dividend applied at the specified layer
+                        generateLayer :: Int -> ValSlice Double
+                        generateLayer n
+                            | n >= dividendLayer = map (\v -> v - dividend) (replicate (n + 1) value) -- Apply dividend
                             | otherwise = replicate (n + 1) value -- Constant values
-                    in [generateLayer n | n <- [0..]] -- Infinite lattice
 
         -- Volatility is annualised
         interest_rates :: LatticeModel Double
