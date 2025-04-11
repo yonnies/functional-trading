@@ -12,6 +12,7 @@ library
         ModelUtils
         GUI
         Main
+        Parser
     build-depends:
         base >=4.14 && <5,
         time,

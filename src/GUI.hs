@@ -9,6 +9,8 @@ import ContractsDSL
 import ModelUtils
 import EvaluationEngine
 
+-- currency exchange rate lattice
+-- stock price lattice
 
 europeanStockCall :: Date -> Double -> Stock -> Contract
 europeanStockCall t strikePrice stk = 
@@ -17,14 +19,12 @@ europeanStockCall t strikePrice stk =
         give (Scale (Konst strikePrice) (one GBP))) 
     `Or` acquireOn t none
 
-
 europeanStockPut :: Date -> Double -> Stock -> Contract
 europeanStockPut t strikePrice stk = 
     acquireOn t 
         (Scale (Konst strikePrice) (one GBP) `And` 
         give (Scale (stockPrice stk) (one GBP)))
     `Or` acquireOn t none
-
 
 americanStockCall :: Date -> Double -> Stock -> Contract
 americanStockCall t strikePrice stk = 
@@ -41,9 +41,25 @@ americanStockPut t strikePrice stk =
         give (Scale (stockPrice stk) (one GBP)))
     `Or` acquireOn t none
 
-
 zcdb :: Date -> Double -> Currency -> Contract
 zcdb t val cur = AcquireOn t (Scale (Konst val) (One cur))
+
+upAndInOption :: Date -> Double -> Stock -> Double -> Contract
+upAndInOption t barrierPrice stk payoff =
+            acquireWhen (stockPrice stk %>= konst barrierPrice) 
+                        (Scale (Konst payoff) (One GBP)) -- Activate the contract if the barrier is breached
+
+downAndInOption :: Date -> Double -> Stock -> Double -> Contract
+downAndInOption t barrierPrice stk payoff =
+            acquireWhen (stockPrice stk %<= konst barrierPrice) 
+                        (Scale (Konst payoff) (One GBP)) -- Activate the contract if the barrier is breached
+
+shortfall :: Double -> Double -> Obs Double
+shortfall goalYield actualYield = maxObs (Konst 0) (Konst goalYield - GrainYield actualYield)
+
+shortfallGrainYieldC :: Date -> Double -> Double -> Contract
+shortfallGrainYieldC t goalYield actualYield =
+    AcquireOn t (Scale ((shortfall goalYield actualYield) * Konst 3) (one USD))
 
 mainGUI :: IO ()
 mainGUI = do

@@ -104,10 +104,10 @@ exampleModel start step = Model {
 
     where
         constPr' :: a -> PR a
-        constPr' val = PR (constSlice 1 val)
+        constPr' val = PR (constLayer 1 val)
 
-        constSlice :: Int -> a -> [ValSlice a]
-        constSlice n x = replicate n x : constSlice (n+1) x
+        constLayer :: Int -> a -> [ValSlice a]
+        constLayer n x = replicate n x : constLayer (n+1) x
 
         -- For simplicity base currency is GBP
         exchange' :: Currency -> Either Error (PR Double)
@@ -140,22 +140,31 @@ exampleModel start step = Model {
                     [ (DIS, stockRates 109.12 0.2253 (stepSizeD / 30)) 
                     , (TSLA, stockRates 338.74 0.9899 (stepSizeD / 30))
                     , (NVDA, stockRates 140.15 0.3821 (stepSizeD / 30))
-                    , (RACE, PR $ (stockWithDividend 401.88 (addDays 90 start) 20)) -- Dummy stock with spike
+                    , (RACE, PR $ (stockWithDividend 401.88 (addDays 90 start) 20)) -- Dummy stock that pays dividend
+                    , (AAPL, PR $ (stockWithSpike 100.88 (addDays 90 start) 1.5)) -- Dummy stock with spike
                     ]
 
                 stockRates :: Double -> Double -> Double -> PR Double
                 stockRates initVal vol timeS = PR $ _CCRModel initVal vol timeS
 
-                -- Generate a stock process with a dividend applied at a specific layer
                 stockWithDividend :: Double -> Date -> Double -> LatticeModel Double
-                stockWithDividend value dividendDate dividend = [generateLayer n | n <- [0..]]
-                    where
-                        dividendLayer = (daysBetween start dividendDate) `div` step
-                        -- Generate a lattice with a dividend applied at the specified layer
-                        generateLayer :: Int -> ValSlice Double
-                        generateLayer n
-                            | n >= dividendLayer = map (\v -> v - dividend) (replicate (n + 1) value) -- Apply dividend
-                            | otherwise = replicate (n + 1) value -- Constant values
+                stockWithDividend value dividendDate dividend =
+                    constPrWithChange value dividendDate (\v -> v - dividend)
+
+                stockWithSpike :: Double -> Date -> Double -> LatticeModel Double
+                stockWithSpike value spikeDate spike =
+                    constPrWithChange value spikeDate (\v -> v * spike)
+
+        -- Generate a const process with a modification applied after a specific layer
+        constPrWithChange :: Double -> Date -> (Double -> Double) -> LatticeModel Double
+        constPrWithChange value changeDate modify = [generateLayer n | n <- [0..]]
+            where
+                changeLayer = (daysBetween start changeDate) `div` step
+
+                generateLayer :: Int -> ValSlice Double
+                generateLayer n
+                    | n >= changeLayer = replicate (n + 1) (modify value) -- Apply modification
+                    | otherwise = replicate (n + 1) value -- Constant values
 
         -- Volatility is annualised
         interest_rates :: LatticeModel Double

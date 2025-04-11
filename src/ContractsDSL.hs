@@ -50,11 +50,12 @@ data Contract
 data Obs a where
     Konst       :: Double -> Obs Double   -- Observable whose value remains unchanged at any point in time
     StockPrice  :: Stock -> Obs Double    -- Observable that represents price of a stock in different points of time
-    -- DateO       :: Date -> Obs Bool
-    LiftD       :: UnaryOp -> Obs Double -> Obs Double
-    Lift2D      :: BinaryOp -> Obs Double -> Obs Double -> Obs Double
-    Lift2B      :: CompareOp -> Obs Double -> Obs Double -> Obs Bool
-    MaxObs      :: Obs Double -> Obs Double -> Obs Double
+    -- DateO       :: Date -> Obs Bool    -- Showing the possibility of representing a date as an observable
+    LiftD       :: UnaryOp -> Obs Double -> Obs Double -- LiftD applies a unary operation to an observable
+    Lift2D      :: BinaryOp -> Obs Double -> Obs Double -> Obs Double -- Lift2D applies a binary operation to two observables
+    Lift2B      :: CompareOp -> Obs Double -> Obs Double -> Obs Bool -- Lift2B applies a comparison operation to two boolean observables
+    MaxObs      :: Obs Double -> Obs Double -> Obs Double -- Takes the maximum of two observables
+    GrainYield  :: Double -> Obs Double -- Observable that represents the yield of a grain over time
     
 deriving instance Show a => Show (Obs a)
 deriving instance Eq a => Eq (Obs a)
@@ -124,7 +125,7 @@ compareOpMap CGT = (>)
 data Currency = GBP | USD | EUR | BGN
     deriving (Eq, Show, Ord)
                               
-data Stock = DIS | TSLA | NVDA | MSFT | RACE
+data Stock = DIS | TSLA | NVDA | MSFT | RACE | AAPL
     deriving (Eq, Show, Ord)
 
 ----------------------------------------------------
