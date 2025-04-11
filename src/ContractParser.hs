@@ -28,7 +28,6 @@ lexer :: Tok.TokenParser ()
 lexer = Tok.makeTokenParser def
 
 -- Shortcuts for common parsers with automatic whitespace handling
-lexeme     = Tok.lexeme lexer     -- For parsing tokens with trailing spaces
 symbol     = Tok.symbol lexer     -- For parsing symbols with trailing spaces
 parens     = Tok.parens lexer     -- Handles "(...)" with automatic spaces
 reserved   = Tok.reserved lexer   -- For reserved names (keywords)
@@ -41,16 +40,17 @@ parseContract s = case parse contractParser "" s of
   Right c  -> Right c
 
 contractParser :: Parser Contract
-contractParser =  parens contractParser 
-              <|> noneParser
-              <|> oneParser
-              <|> giveParser
-              <|> andParser
-              <|> orParser
-              <|> acquireOnParser
-              <|> acquireOnBeforeParser
-              <|> scaleParser
-              <|> acquireWhenParser
+contractParser =  
+        parens contractParser 
+    <|> noneParser
+    <|> oneParser
+    <|> giveParser
+    <|> andParser
+    <|> orParser
+    <|> acquireOnParser
+    <|> acquireOnBeforeParser
+    <|> scaleParser
+    <|> acquireWhenParser
 
 
 noneParser :: Parser Contract
@@ -142,16 +142,12 @@ lift2DParser = do
 
 unaryOpParser :: Parser UnaryOp
 unaryOpParser = choice
-  [ reservedOp "-" >> return UNegate,
-    reserved "UNegate" >> return UNegate
+  [ reserved "UNegate" >> return UNegate
   ]
 
 binaryOpParser :: Parser BinaryOp
 binaryOpParser = choice
-  [ reservedOp "+" >> return BAdd
-  , reservedOp "-" >> return BSub
-  , reservedOp "*" >> return BMul
-  , reserved "BAdd" >> return BAdd
+  [ reserved "BAdd" >> return BAdd
   , reserved "BSub" >> return BSub
   , reserved "BMul" >> return BMul
   ]
@@ -188,7 +184,7 @@ konstParser = do
   where
     signedValue = do
       sign <- option id (char '-' >> return negate)
-      value <- Tok.float lexer
+      value <- Tok.float lexer <|> try (fromIntegral <$> Tok.integer lexer) 
       return $ sign value
 
 stockPriceParser :: Parser (Obs Double)
@@ -198,18 +194,19 @@ stockPriceParser = do
   return $ StockPrice stock
 
 obsBoolParser :: Parser (Obs Bool)
-obsBoolParser =  parens obsBoolParser  
-             <|> do
-                o1 <- obsParser
-                op <- comparisonOperatorParser
-                o2 <- obsParser
-                return $ Lift2B op o1 o2
-            <|> do
-                reserved "Lift2B"
-                op <- comparisonOperatorParser
-                o1 <- parens obsParser
-                o2 <- parens obsParser
-                return $ Lift2B op o1 o2
+obsBoolParser = 
+        parens obsBoolParser  
+    <|> do
+        o1 <- obsParser
+        op <- comparisonOperatorParser
+        o2 <- obsParser
+        return $ Lift2B op o1 o2
+    <|> do
+        reserved "Lift2B"
+        op <- comparisonOperatorParser
+        o1 <- parens obsParser
+        o2 <- parens obsParser
+        return $ Lift2B op o1 o2
 
 
 currencyParser :: Parser Currency
