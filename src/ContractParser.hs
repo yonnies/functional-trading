@@ -123,6 +123,7 @@ term =  parens obsParser
      <|> try maxObsParser
      <|> try konstParser
      <|> try stockPriceParser
+     <|> try grainYieldParser
      <|> try (unaryNegation <$> (reservedOp "-" *> term)) 
 
 liftDParser :: Parser (Obs Double)
@@ -184,7 +185,7 @@ konstParser = do
   where
     signedValue = do
       sign <- option id (char '-' >> return negate)
-      value <- Tok.float lexer <|> try (fromIntegral <$> Tok.integer lexer) 
+      value <- try (Tok.float lexer) <|> fromIntegral <$> Tok.integer lexer
       return $ sign value
 
 stockPriceParser :: Parser (Obs Double)
@@ -192,6 +193,12 @@ stockPriceParser = do
   reserved "StockPrice"
   stock <- stockParser
   return $ StockPrice stock
+
+grainYieldParser :: Parser (Obs Double)
+grainYieldParser = do
+  reserved "GrainYield"
+  o <- obsParser
+  return $ GrainYield o
 
 obsBoolParser :: Parser (Obs Bool)
 obsBoolParser = 

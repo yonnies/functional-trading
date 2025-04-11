@@ -78,7 +78,7 @@ setup window = do
     contractInput <- UI.textarea
         # set UI.rows (show (10 :: Int))
         # set UI.cols (show (50 :: Int))
-        # set UI.value "AcquireOn (date \"05-02-2026\") (One GBP)"
+        # set UI.value "AcquireOn 05-02-2025 (One GBP)"
     evalButton <- UI.button # set UI.text "Evaluate"
     resultOutput <- UI.div # set UI.style [ ("padding", "10px")]
 
