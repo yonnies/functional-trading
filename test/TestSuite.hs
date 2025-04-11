@@ -8,10 +8,12 @@ import Test.Tasty.HUnit
 import Control.Applicative (liftA2)
 import Text.Printf (printf)
 import Control.Monad.State
+import Data.Time (defaultTimeLocale, formatTime)
 
 import ContractsDSL 
 import ModelUtils
 import EvaluationEngine
+import ContractParser
 
 ----------------------------------------------------------------
 -- QuickCheck properties
@@ -166,8 +168,8 @@ unit_test_unprofitable_american =
 unit_test_american_vs_eu :: Assertion
 unit_test_american_vs_eu = 
   let model          = exampleModel today 30
-      europeanC      = AcquireOn (date "05-06-2025") (Scale (stockPrice RACE) (One GBP))
-      americanC      = AcquireOnBefore (date "05-06-2025") (Scale (stockPrice RACE) (One GBP))
+      europeanC      = AcquireOn (date "05-06-2025") (Scale (StockPrice RACE) (One GBP))
+      americanC      = AcquireOnBefore (date "05-06-2025") (Scale (StockPrice RACE) (One GBP))
       europeanResult = eval model europeanC
       americanResult = eval model americanC
   in case (europeanResult, americanResult) of
@@ -218,7 +220,7 @@ unit_test_unsupported_currency =
 unit_test_unsupported_stock :: Assertion
 unit_test_unsupported_stock = 
   let model    = exampleModel today 30
-      contract = AcquireOn (date "05-02-2025") ((Scale (stockPrice MSFT)) (One GBP))
+      contract = AcquireOn (date "05-02-2025") ((Scale (StockPrice MSFT)) (One GBP))
       result   = eval model contract
   in case result of
        Left _    -> return ()  -- Expected failure, test passes
@@ -345,6 +347,7 @@ main = defaultMain $ testGroup "All Tests"
   [ testGroup "Structural (no eval needed)"
       [ testProperty "doubleNegation"           prop_doubleNegation
       , testProperty "optimiseIdempotent"       prop_optimise_idempotent
+      , testProperty "roundTripParser"          prop_roundTripParser
       ]
   , testGroup "Valuation properties"
       [ testProperty "prop_optLayerPreservesMeanign" prop_optLayerPreservesMeanign
@@ -371,3 +374,22 @@ main = defaultMain $ testGroup "All Tests"
       , testCase "test_and_takes_later_expiry"  unit_test_and_takes_later_expiry
       ]
   ]
+
+
+prop_roundTripParser :: Contract -> Property
+prop_roundTripParser contract =
+  let contractStr = show contract
+      parsed = parseContract contractStr
+  in case parsed of
+       Right parsedContract ->
+         counterexample
+           (  "Original: " ++ contractStr
+           ++ "\nParsed: " ++ show parsedContract
+           )
+           (parsedContract == contract)
+       Left err ->
+         counterexample
+           (  "Failed to parse contract: " ++ contractStr
+           ++ "\nError: " ++ err
+           )
+           False

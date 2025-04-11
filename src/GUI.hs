@@ -8,58 +8,59 @@ import Text.Printf (printf)
 import ContractsDSL
 import ModelUtils
 import EvaluationEngine
+import ContractParser 
 
 -- currency exchange rate lattice
 -- stock price lattice
 
 europeanStockCall :: Date -> Double -> Stock -> Contract
 europeanStockCall t strikePrice stk = 
-    acquireOn t 
-        (Scale (stockPrice stk) (one GBP) `And` 
-        give (Scale (Konst strikePrice) (one GBP))) 
-    `Or` acquireOn t none
+    AcquireOn t 
+        (Scale (StockPrice stk) (One GBP) `And` 
+        Give (Scale (Konst strikePrice) (One GBP))) 
+    `Or` AcquireOn t None
 
 europeanStockPut :: Date -> Double -> Stock -> Contract
 europeanStockPut t strikePrice stk = 
-    acquireOn t 
-        (Scale (Konst strikePrice) (one GBP) `And` 
-        give (Scale (stockPrice stk) (one GBP)))
-    `Or` acquireOn t none
+    AcquireOn t 
+        (Scale (Konst strikePrice) (One GBP) `And` 
+        Give (Scale (StockPrice stk) (One GBP)))
+    `Or` AcquireOn t None
 
 americanStockCall :: Date -> Double -> Stock -> Contract
 americanStockCall t strikePrice stk = 
-    acquireOnBefore t 
-        (Scale (stockPrice stk) (one GBP) `And` 
-        give (Scale (Konst strikePrice) (one GBP))) 
-    `Or` acquireOn t none
+    AcquireOnBefore t 
+        (Scale (StockPrice stk) (One GBP) `And` 
+        Give (Scale (Konst strikePrice) (One GBP))) 
+    `Or` AcquireOn t None
 
 
 americanStockPut :: Date -> Double -> Stock -> Contract
 americanStockPut t strikePrice stk = 
-    acquireOnBefore t 
-        (Scale (Konst strikePrice) (one GBP) `And` 
-        give (Scale (stockPrice stk) (one GBP)))
-    `Or` acquireOn t none
+    AcquireOnBefore t 
+        (Scale (Konst strikePrice) (One GBP) `And` 
+        Give (Scale (StockPrice stk) (One GBP)))
+    `Or` AcquireOn t None
 
 zcdb :: Date -> Double -> Currency -> Contract
 zcdb t val cur = AcquireOn t (Scale (Konst val) (One cur))
 
 upAndInOption :: Date -> Double -> Stock -> Double -> Contract
 upAndInOption t barrierPrice stk payoff =
-            acquireWhen (stockPrice stk %>= konst barrierPrice) 
+            AcquireWhen (StockPrice stk %>= Konst barrierPrice) 
                         (Scale (Konst payoff) (One GBP)) -- Activate the contract if the barrier is breached
 
 downAndInOption :: Date -> Double -> Stock -> Double -> Contract
 downAndInOption t barrierPrice stk payoff =
-            acquireWhen (stockPrice stk %<= konst barrierPrice) 
+            AcquireWhen (StockPrice stk %<= Konst barrierPrice) 
                         (Scale (Konst payoff) (One GBP)) -- Activate the contract if the barrier is breached
 
 shortfall :: Double -> Double -> Obs Double
-shortfall goalYield actualYield = maxObs (Konst 0) (Konst goalYield - GrainYield actualYield)
+shortfall goalYield actualYield = MaxObs (Konst 0) (Konst goalYield - GrainYield actualYield)
 
 shortfallGrainYieldC :: Date -> Double -> Double -> Contract
 shortfallGrainYieldC t goalYield actualYield =
-    AcquireOn t (Scale ((shortfall goalYield actualYield) * Konst 3) (one USD))
+    AcquireOn t (Scale ((shortfall goalYield actualYield) * Konst 3) (One USD))
 
 mainGUI :: IO ()
 mainGUI = do
@@ -81,8 +82,6 @@ setup window = do
     evalButton <- UI.button # set UI.text "Evaluate"
     resultOutput <- UI.div # set UI.style [ ("padding", "10px")]
 
-    
-
     -- Layout (unchanged)
     UI.getBody window #+
         [ UI.h1 # set UI.text "Contract Evaluation"
@@ -103,8 +102,6 @@ setup window = do
                     Left err -> void $ element resultOutput # set UI.text ("Evaluation Error: " ++ err)
                     Right pr -> void $ element resultOutput # set UI.html (formatPR pr)
     where
-        parseContract :: String -> Either String Contract
-        parseContract s = Right $ AcquireOn (date "05-02-2026") (One GBP)
         
         formatPR :: PR Double -> String
         formatPR (PR layers) = unlines $

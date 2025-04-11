@@ -128,44 +128,6 @@ data Currency = GBP | USD | EUR | BGN
 data Stock = DIS | TSLA | NVDA | MSFT | RACE | AAPL
     deriving (Eq, Show, Ord)
 
-----------------------------------------------------
--- Lower case notation to prevent typo bugs 
-
-none :: Contract
-none = None
-
-one :: Currency -> Contract
-one = One
-
-give :: Contract -> Contract
-give = Give
-
-and_ :: Contract -> Contract -> Contract
-and_ = And
-
-or_ :: Contract -> Contract -> Contract
-or_ = Or
-
-acquireOn :: Date -> Contract -> Contract
-acquireOn = AcquireOn
-
-acquireOnBefore :: Date -> Contract -> Contract
-acquireOnBefore = AcquireOnBefore
-
-scale_ :: Obs Double -> Contract -> Contract
-scale_ = Scale
-
-konst :: Double -> Obs Double
-konst = Konst
-
-stockPrice :: Stock -> Obs Double
-stockPrice = StockPrice
-
-acquireWhen :: Obs Bool -> Contract -> Contract
-acquireWhen = AcquireWhen
-
-maxObs :: Obs Double -> Obs Double -> Obs Double
-maxObs = MaxObs
 
 -------------------------------------------------
 -- Contract generation rules 
@@ -178,28 +140,28 @@ instance Arbitrary Contract where
 -- Generate random contracts with a size limit
 genContract :: Int -> Gen Contract
 genContract 0 = frequency
-  [ (1, pure none)
-  , (8, one <$> genRandomCurrency)
+  [ (1, pure None)
+  , (8, One <$> genRandomCurrency)
   ]
 genContract n = oneof
-  [ give <$> genContract (n `div` 2)
+  [ Give <$> genContract (n `div` 2)
   , do
       leftSize <- choose (0, n `div` 2)
       c1 <- genContract leftSize
       c2 <- genContract (n `div` 2 - leftSize)
-      oneof [ pure (and_ c1 c2), pure (or_ c1 c2) ]
+      oneof [ pure (And c1 c2), pure (Or c1 c2) ]
   , do
       c <- genContract (n `div` 2)
       someDate <- genRandomDate
-      oneof [ pure (acquireOn someDate c), pure (acquireOnBefore someDate c) ]
+      oneof [ pure (AcquireOn someDate c), pure (AcquireOnBefore someDate c) ]
   , do
       c <- genContract (n `div` 2)
       obs <- genObsDouble
-      pure (scale_ obs c)
+      pure (Scale obs c)
   , do
       c <- genContract (n `div` 2)
       obs <- genObsBool
-      pure (acquireWhen obs c)
+      pure (AcquireWhen obs c)
   ]
 
 -- Generate random numeric observables
@@ -211,12 +173,12 @@ genObsDouble = sized $ \n ->
     , (1, (+) <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
     , (1, (-) <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
     , (1, (*) <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
-    , (1, maxObs <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
+    , (1, MaxObs <$> resize (n `div` 2) genObsDouble <*> resize (n `div` 2) genObsDouble)
     ]
   where
     baseCase = frequency
-      [ (3, konst <$> arbitrary)
-      , (2, stockPrice <$> genRandomStock)
+      [ (3, Konst <$> arbitrary)
+      , (2, StockPrice <$> genRandomStock)
       ]
 
 -- Generate random boolean observables
