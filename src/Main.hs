@@ -9,9 +9,13 @@ import Servant
 import Data.Aeson (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Network.Wai.Handler.Warp (run)
-import Control.Monad.IO.Class (liftIO)
-import Network.Wai (Middleware)
 import Network.Wai.Middleware.Cors (cors, simpleCorsResourcePolicy, CorsResourcePolicy(..))
+import Control.Monad.IO.Class (liftIO)
+import ContractsDSL
+import ModelUtils
+import EvaluationEngine
+import GUI 
+
 
 -- Define the input and output types
 data ContractInput = ContractInput
@@ -24,6 +28,7 @@ instance ToJSON ContractInput
 
 data ContractResult = ContractResult
   { result :: String
+  , svg    :: String
   } deriving (Generic, Show)
 
 instance FromJSON ContractResult
@@ -32,13 +37,25 @@ instance ToJSON ContractResult
 -- Define the API
 type API = "evaluate" :> ReqBody '[JSON] ContractInput :> Post '[JSON] ContractResult
 
--- Define the server logic
+
 server :: Server API
 server (ContractInput contractType params) = liftIO $ do
   putStrLn $ "Received request: " ++ contractType ++ " with params: " ++ show params
-  let result = "Evaluated contract: " ++ contractType ++ " with params: " ++ show params
-  putStrLn $ "Sending response: " ++ result
-  return $ ContractResult result
+  case parseContractRequest contractType params of
+    Left err -> do
+      putStrLn $ "Error: " ++ err
+      return $ ContractResult ("Error: " ++ err) ""
+    Right contract -> do
+      let model = exampleModel today 30
+      case eval model contract of
+        Left evalErr -> do
+          putStrLn $ "Evaluation Error: " ++ evalErr
+          return $ ContractResult ("Evaluation Error: " ++ evalErr) ""
+        Right pr -> do
+          let resultText = "Contract evaluated successfully: " ++ show pr
+          let svgContent = formatPR pr -- Generate the SVG using formatPR
+          putStrLn $ "Sending response: " ++ resultText
+          return $ ContractResult resultText svgContent
 
 -- Run the server
 main :: IO ()

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Contract Evaluator</title>
-  <link rel="stylesheet" href="style.css"> </head>
+
 </head>
 <body>
   <h1>Contract Evaluator</h1>
@@ -109,35 +109,33 @@
     });
     });
   
-    // Send evaluation request
     evaluateButton.addEventListener('click', async () => {
-      const contractType = contractDropdown.value;
-      const inputs = Array.from(parametersDiv.querySelectorAll('input, select')).map(input => input.value);
-  
-      // Log a message to the browser console
-      console.log(`Sending request to back end: contractType=${contractType}, inputs=${inputs}`);
-  
-      try {
-        const response = await fetch('http://localhost:12125/evaluate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contractType, parameters: inputs })
-        });
-  
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-  
-        const result = await response.json();
-        resultDiv.textContent = result.result;
-  
-        // Log a message to the browser console after receiving the response
-        console.log('Response received from back end:', result);
-      } catch (error) {
-        console.error('Error communicating with the back end:', error);
-        alert('Failed to communicate with the back end. Please try again.');
+    const contractType = contractDropdown.value;
+    const inputs = Array.from(parametersDiv.querySelectorAll('input, select')).map(input => input.value);
+
+    try {
+      const response = await fetch('http://localhost:12125/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contractType, parameters: inputs })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    });
+
+      const result = await response.json();
+      resultDiv.textContent = result.result;
+
+      // Display the SVG
+      const svgContainer = document.createElement('div');
+      svgContainer.innerHTML = result.svg;
+      resultDiv.appendChild(svgContainer);
+    } catch (error) {
+      console.error('Error communicating with the back end:', error);
+      alert('Failed to communicate with the back end. Please try again.');
+    }
+  });
   </script>
 </body>
 </html>

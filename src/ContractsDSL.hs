@@ -123,11 +123,10 @@ compareOpMap CGT = (>)
 -- Supported Currencies & Stocks 
 
 data Currency = GBP | USD | EUR | BGN
-    deriving (Eq, Show, Ord)
+    deriving (Eq, Show, Ord, Read)
                               
 data Stock = DIS | TSLA | NVDA | MSFT | RACE | AAPL
-    deriving (Eq, Show, Ord)
-
+    deriving (Eq, Show, Ord, Read)
 
 -------------------------------------------------
 -- Contract generation rules 
