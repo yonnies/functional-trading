@@ -1,18 +1,110 @@
+/* General body styling */
 body {
-    background-color: #b36565;
-    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    font-family: 'Roboto', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
 }
 
+/* Header styling */
 h1 {
-    color: #333;
+    color: #2c3e50;
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    text-align: center;
 }
 
-div {
-    border: 2px solid rgb(215, 0, 0);
+/* Dropdown styling */
+select {
+    width: 300px;
     padding: 10px;
-    background-color: #ffffff;
+    font-size: 1rem;
+    border: 2px solid #3498db;
+    border-radius: 5px;
+    background-color: #ecf0f1;
+    color: #2c3e50;
+    margin-bottom: 20px;
+    transition: border-color 0.3s ease;
 }
 
-text {
-    color: #0000ff;
+select:hover {
+    border-color: #2980b9;
+}
+
+select:focus {
+    outline: none;
+    border-color: #2980b9;
+    box-shadow: 0 0 5px rgba(41, 128, 185, 0.5);
+}
+
+/* Input field styling */
+input {
+    width: 280px;
+    padding: 10px;
+    margin: 10px 0;
+    font-size: 1rem;
+    border: 2px solid #95a5a6;
+    border-radius: 5px;
+    background-color: #ecf0f1;
+    color: #2c3e50;
+    transition: border-color 0.3s ease;
+}
+
+input:focus {
+    outline: none;
+    border-color: #16a085;
+    box-shadow: 0 0 5px rgba(22, 160, 133, 0.5);
+}
+
+/* Button styling */
+button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    color: #fff;
+    background-color: #e74c3c;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+    background-color: #c0392b;
+    transform: scale(1.05);
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+/* Result box styling */
+#result {
+    margin-top: 20px;
+    padding: 15px;
+    width: 320px;
+    border: 2px solid #2ecc71;
+    border-radius: 5px;
+    background-color: #ecf0f1;
+    color: #27ae60;
+    font-size: 1rem;
+    text-align: center;
+    word-wrap: break-word;
+}
+
+/* Parameters container styling */
+#parameters {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Add some spacing between elements */
+div, select, button {
+    margin-bottom: 15px;
 }

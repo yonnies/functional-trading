@@ -197,8 +197,8 @@ stockPriceParser = do
 grainYieldParser :: Parser (Obs Double)
 grainYieldParser = do
   reserved "GrainYield"
-  o <- obsParser
-  return $ GrainYield o
+  value <- try (Tok.float lexer) <|> fromIntegral <$> Tok.integer lexer
+  return $ GrainYield value
 
 obsBoolParser :: Parser (Obs Bool)
 obsBoolParser = 

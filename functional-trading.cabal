@@ -10,7 +10,6 @@ library
         EvaluationEngine
         EvaluationEngineNoCache
         ModelUtils
-        GUI
         Main
         ContractParser
     build-depends:
@@ -21,7 +20,15 @@ library
         mtl,
         deepseq,
         threepenny-gui >= 0.9,
-        parsec
+        parsec,
+        servant,
+        servant-server,
+        aeson,
+        wai,
+        warp,
+        wai-cors,
+        text,
+        containers
     default-language: Haskell2010
 
 executable functional-trading
@@ -37,9 +44,16 @@ executable functional-trading
         deepseq,
         functional-trading,
         threepenny-gui >= 0.9,
-        parsec
+        parsec,
+        servant,
+        servant-server,
+        aeson,
+        wai,
+        warp,
+        wai-cors,
+        text,
+        containers
     other-modules:
-        GUI
         ContractsDSL
         EvaluationEngine
         ModelUtils
