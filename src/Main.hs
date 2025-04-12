@@ -52,7 +52,7 @@ server (ContractInput _contractType params) = liftIO $ do
           putStrLn $ "Evaluation Error: " ++ evalErr
           return $ ContractResult ("Evaluation Error: " ++ evalErr) ""
         Right pr -> do
-          let resultText = "Contract: " ++ show contract
+          let resultText = show contract
           let svgContent = formatPR pr -- Generate the SVG using formatPR
           putStrLn $ "Sending response: " ++ resultText
           return $ ContractResult resultText svgContent

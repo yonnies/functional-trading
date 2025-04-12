@@ -41,7 +41,6 @@ h1 {
 #imageBox {
     background-color: #0E1116;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    padding: auto;
     border-radius: 8px;
     height: auto;
     display: flex;
@@ -49,6 +48,7 @@ h1 {
     align-items: center;
     overflow: hidden;
     border: 1px solid #3D454C;
+    padding-bottom: 50px !important;
 }
 
 
