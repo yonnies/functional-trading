@@ -1,44 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Contract Evaluator</title>
+  <link rel="stylesheet" href="style.css">
 
 </head>
+
 <body>
   <h1>Contract Evaluator</h1>
-  <select id="contractDropdown">
-    <option value="">Select a contract...</option>
-    <option value="europeanStockCall">European Stock Call</option>
-    <option value="europeanStockPut">European Stock Put</option>
-    <option value="americanStockCall">American Stock Call</option>
-    <option value="americanStockPut">American Stock Put</option>
-    <option value="zcdb">Zero-Coupon Bond</option>
-    <option value="upAndInOption">Up-and-In Option</option>
-    <option value="downAndInOption">Down-and-In Option</option>
-    <option value="shortfallGrainYieldC">Shortfall Grain Yield</option>
-    <option value="customContract">Custon Contract</option>
-  </select>
-  <div id="parameters"></div>
-  <button id="evaluateButton">Evaluate</button>
-  <div id="result"></div>
+  <div id="container">
+    <div id="inputBox">
+      <label for="contractDropdown" style="display: block;">Contract type:</label>
+      <select id="contractDropdown">
+        <option value="">Select a contract...</option>
+        <option value="europeanStockCall">European Stock Call</option>
+        <option value="europeanStockPut">European Stock Put</option>
+        <option value="americanStockCall">American Stock Call</option>
+        <option value="americanStockPut">American Stock Put</option>
+        <option value="zcdb">Zero-Coupon Bond</option>
+        <option value="upAndInOption">Up-and-In Option</option>
+        <option value="downAndInOption">Down-and-In Option</option>
+        <option value="shortfallGrainYieldC">Shortfall Grain Yield</option>
+        <option value="customContract">Custom Contract</option>
+      </select>
+      <div id="parameters"></div>
+      <button id="evaluateButton">Evaluate</button>
+    </div>
+    <label for="textReplyBox" class="hidden boxLabel">Contract</label>
+    <div id="textReplyBox" class="hidden">
+      <div id="result"></div>
+    </div>
+    <label for="imageBox" class="hidden boxLabel">Process lattice</label>
+    <div id="imageBox" class="hidden"></div>
+    <button id="downloadButton" class="hidden">Download Image</button>
+  </div>
 
   <script>
     const contractDropdown = document.getElementById('contractDropdown');
     const parametersDiv = document.getElementById('parameters');
     const evaluateButton = document.getElementById('evaluateButton');
     const resultDiv = document.getElementById('result');
-  
+    const textReplyBox = document.getElementById('textReplyBox');
+    const imageBox = document.getElementById('imageBox');
+    
+
     // List of currencies and stocks
     const currencies = ["GBP", "USD", "EUR", "BGN"];
     const stocks = ["DIS", "TSLA", "NVDA", "MSFT", "RACE", "AAPL"];
-  
+
     // Update parameters based on selected contract
     contractDropdown.addEventListener('change', () => {
       const contractType = contractDropdown.value;
       parametersDiv.innerHTML = ''; // Clear previous inputs
-  
+
       let inputs = [];
       switch (contractType) {
         case 'europeanStockCall':
@@ -61,81 +78,108 @@
           inputs = ['Custom Contract'];
           break;
       }
-  
+
       inputs.forEach(label => {
-      const inputWrapper = document.createElement('div');
-      inputWrapper.style.marginBottom = '10px';
+        const inputWrapper = document.createElement('div');
+        inputWrapper.style.marginBottom = '10px';
 
-      const inputLabel = document.createElement('label');
-      inputLabel.textContent = label;
-      inputLabel.style.display = 'block';
+        const inputLabel = document.createElement('label');
+        inputLabel.textContent = label;
+        inputLabel.style.display = 'block';
 
-      let input;
-      if (label === 'Date') {
-        // Create a date input field
-        input = document.createElement('input');
-        input.type = 'date';
+        let input;
+        if (label === 'Date') {
+          input = document.createElement('input');
+          input.type = 'date';
+          const today = new Date().toISOString().split('T')[0];
+          input.min = today;
+        } else if (label === 'Currency') {
+          input = document.createElement('select');
+          currencies.forEach(currency => {
+            const option = document.createElement('option');
+            option.value = currency;
+            option.textContent = currency;
+            input.appendChild(option);
+          });
+        } else if (label === 'Stock') {
+          input = document.createElement('select');
+          stocks.forEach(stock => {
+            const option = document.createElement('option');
+            option.value = stock;
+            option.textContent = stock;
+            input.appendChild(option);
+          });
+        } else {
+          input = document.createElement('input');
+          input.type = 'text';
+        }
 
-        // Set the minimum date to today
-        const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
-        input.min = today;
-      } else if (label === 'Currency') {
-        // Create a dropdown for currencies
-        input = document.createElement('select');
-        currencies.forEach(currency => {
-          const option = document.createElement('option');
-          option.value = currency;
-          option.textContent = currency;
-          input.appendChild(option);
-        });
-      } else if (label === 'Stock') {
-        // Create a dropdown for stocks
-        input = document.createElement('select');
-        stocks.forEach(stock => {
-          const option = document.createElement('option');
-          option.value = stock;
-          option.textContent = stock;
-          input.appendChild(option);
-        });
-      } else {
-        // Create a numeric input field for other parameters
-        input = document.createElement('input');
-        input.type = 'text'; // Use text input for the custom field
-      }
-
-      inputWrapper.appendChild(inputLabel);
-      inputWrapper.appendChild(input);
-      parametersDiv.appendChild(inputWrapper);
-    });
-    });
-  
-    evaluateButton.addEventListener('click', async () => {
-    const contractType = contractDropdown.value;
-    const inputs = Array.from(parametersDiv.querySelectorAll('input, select')).map(input => input.value);
-
-    try {
-      const response = await fetch('http://localhost:12125/evaluate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contractType, parameters: inputs })
+        inputWrapper.appendChild(inputLabel);
+        inputWrapper.appendChild(input);
+        parametersDiv.appendChild(inputWrapper);
       });
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    evaluateButton.addEventListener('click', async () => {
+  const contractType = contractDropdown.value;
+  const inputs = Array.from(parametersDiv.querySelectorAll('input, select')).map(input => input.value);
 
-      const result = await response.json();
-      resultDiv.textContent = result.result;
+  try {
+    const response = await fetch('http://localhost:12125/evaluate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contractType, parameters: inputs })
+    });
 
-      // Display the SVG
-      const svgContainer = document.createElement('div');
-      svgContainer.innerHTML = result.svg;
-      resultDiv.appendChild(svgContainer);
-    } catch (error) {
-      console.error('Error communicating with the back end:', error);
-      alert('Failed to communicate with the back end. Please try again.');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  });
+
+    const result = await response.json();
+    resultDiv.textContent = result.result;
+
+    // Show the textReplyBox and its label
+    textReplyBox.classList.remove('hidden');
+    document.querySelector("label[for='textReplyBox']").classList.remove('hidden');
+
+    // Show the imageBox and its label
+    imageBox.classList.remove('hidden');
+    document.querySelector("label[for='imageBox']").classList.remove('hidden');
+
+    // Display the SVG in the imageBox
+    const svgContainer = document.createElement('div');
+    svgContainer.innerHTML = result.svg;
+    imageBox.innerHTML = ''; // Clear previous SVG
+    imageBox.appendChild(svgContainer);
+
+    // Show the download button
+    const downloadButton = document.getElementById('downloadButton');
+    downloadButton.classList.remove('hidden');
+
+    // Add download functionality
+    downloadButton.addEventListener('click', () => {
+      const svgElement = svgContainer.querySelector('svg');
+      if (svgElement) {
+        const serializer = new XMLSerializer();
+        const svgBlob = new Blob([serializer.serializeToString(svgElement)], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(svgBlob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'image.svg';
+        link.click();
+
+        URL.revokeObjectURL(url); // Clean up the URL object
+      } else {
+        alert('No SVG found to download.');
+      }
+    });
+  } catch (error) {
+    console.error('Error communicating with the back end:', error);
+    alert('Failed to communicate with the back end. Please try again.');
+  }
+});
   </script>
 </body>
+
 </html>

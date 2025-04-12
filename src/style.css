@@ -1,0 +1,100 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #02040A;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    color: #66FCF1;
+    margin-left: 30px;
+    margin-top: 40px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    font-size: 2.5em;
+}
+
+.boxLabel {
+    color: #66FCF1;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+    margin-top: 20px;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+#container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 25px;
+}
+
+#inputBox,
+#textReplyBox {
+    background-color: #0E1116;
+    color: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border: 1px solid #3D454C;
+}
+
+#imageBox {
+    background-color: #0E1116;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    padding: auto;
+    border-radius: 8px;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid #3D454C;
+}
+
+
+#imageBox svg {
+    width: 100%; /* Make the SVG take the full width of the parent */
+    object-fit: contain; /* Ensure the SVG scales proportionally */
+    display: block; /* Remove any extra spacing caused by inline elements */
+}
+
+.hidden {
+    display: none;
+}
+
+select, input, button {
+    width: 300px;
+    max-width: 300px;
+    margin-bottom: 10px;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #3D454C;
+    border-radius: 4px;
+    background-color: transparent;
+    color: #ffffff;
+    box-sizing: border-box; /* Ensures consistent width */
+}
+
+select:hover, input:hover, button:hover {
+    outline: none;
+    border-color: #66FCF1;
+}
+
+select:focus, input:focus, button:focus {
+    outline: none;
+    border-color: #66FCF1;
+}
+
+button {
+    cursor: pointer;
+    background-color: transparent;
+    border: 2px solid #45A29E;
+    color: #37dad2;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #45A29E;
+    color: white;
+}

@@ -1,13 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module GUI where
 
-import qualified Graphics.UI.Threepenny as UI
-import Graphics.UI.Threepenny.Core hiding (delete)
-import Control.Monad (void)
 import Text.Printf (printf)
+
 import ContractsDSL
 import ModelUtils
-import EvaluationEngine
 import ContractParser 
 
 -- Parse and evaluate the contract
@@ -32,7 +29,7 @@ parseContractRequest "customContract" [contractString] =
   case parseContract contractString of
     Left err -> Left $ "Parse error: " ++ err
     Right contract -> Right contract
-parseContractRequest _ prms = Left ("Invalid contract type or parameters????" ++ (prms !! 0))
+parseContractRequest _ prms = Left "Invalid contract type or parameters"
 
 -- currency exchange rate lattice
 -- stock price lattice
@@ -90,7 +87,7 @@ shortfallGrainYieldC t goalYield actualYield =
 formatPR :: PR Double -> String
 formatPR (PR layers) = unlines $
     [ "<svg xmlns='http://www.w3.org/2000/svg' width='" ++ show svgWidth ++ "' height='" ++ show svgHeight ++ "'>"
-    , "<rect width='100%' height='100%' fill='white'/>"
+    , "<rect width='100%' height='100%' fill='none'/>"
     ] ++ concatMap renderLayer (zip [0..] layers) ++ ["</svg>"]
     where
         layerCount = length layers
@@ -128,7 +125,7 @@ formatPR (PR layers) = unlines $
                 textWidth = fromIntegral (length valStr) * 8 -- Approximate width of the text (8px per character)
                 rectWidth = max (textWidth + 10) 40 -- Add padding and ensure a minimum width
                 rectHeight = rectWidth -- Fixed height for the rectangle
-            in "<rect x='" ++ show (x - rectWidth / 2) ++ "' y='" ++ show (y - rectHeight / 2) ++ "' width='" ++ show rectWidth ++ "' height='" ++ show rectHeight ++ "' fill='lightblue' stroke='black'  />"
+            in "<rect x='" ++ show (x - rectWidth / 2) ++ "' y='" ++ show (y - rectHeight / 2) ++ "' width='" ++ show rectWidth ++ "' height='" ++ show rectHeight ++ "' fill='white' stroke='gray'  />"
                 ++ "<text x='" ++ show x ++ "' y='" ++ show (y+2) ++ "' font-size='15' fill='black' text-anchor='middle' dominant-baseline='middle'>" ++ valStr ++ "</text>"
 
 
@@ -141,6 +138,6 @@ formatPR (PR layers) = unlines $
                 let (x1, y1) = nodePosition layerIndex nodeIndex
                     (x2, y2) = nodePosition (layerIndex + 1) nodeIndex
                     (x3, y3) = nodePosition (layerIndex + 1) (nodeIndex + 1)
-                in [ "<line x1='" ++ show x1 ++ "' y1='" ++ show y1 ++ "' x2='" ++ show x2 ++ "' y2='" ++ show y2 ++ "' stroke='black' />"
-                    , "<line x1='" ++ show x1 ++ "' y1='" ++ show y1 ++ "' x2='" ++ show x3 ++ "' y2='" ++ show y3 ++ "' stroke='black' />"
+                in [ "<line x1='" ++ show x1 ++ "' y1='" ++ show y1 ++ "' x2='" ++ show x2 ++ "' y2='" ++ show y2 ++ "' stroke='gray' />"
+                    , "<line x1='" ++ show x1 ++ "' y1='" ++ show y1 ++ "' x2='" ++ show x3 ++ "' y2='" ++ show y3 ++ "' stroke='gray' />"
                     ]
