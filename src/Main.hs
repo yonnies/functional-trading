@@ -39,9 +39,9 @@ type API = "evaluate" :> ReqBody '[JSON] ContractInput :> Post '[JSON] ContractR
 
 
 server :: Server API
-server (ContractInput contractType params) = liftIO $ do
-  putStrLn $ "Received request: " ++ contractType ++ " with params: " ++ show params
-  case parseContractRequest contractType params of
+server (ContractInput _contractType params) = liftIO $ do
+  putStrLn $ "Received request: " ++ _contractType ++ " with params: " ++ show params
+  case parseContractRequest _contractType params of
     Left err -> do
       putStrLn $ "Error: " ++ err
       return $ ContractResult ("Error: " ++ err) ""
@@ -52,7 +52,7 @@ server (ContractInput contractType params) = liftIO $ do
           putStrLn $ "Evaluation Error: " ++ evalErr
           return $ ContractResult ("Evaluation Error: " ++ evalErr) ""
         Right pr -> do
-          let resultText = "Contract evaluated successfully: " ++ show pr
+          let resultText = "Contract: " ++ show contract
           let svgContent = formatPR pr -- Generate the SVG using formatPR
           putStrLn $ "Sending response: " ++ resultText
           return $ ContractResult resultText svgContent

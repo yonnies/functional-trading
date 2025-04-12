@@ -57,6 +57,7 @@ executable functional-trading
         ContractsDSL
         EvaluationEngine
         ModelUtils
+        GUI
     default-language: Haskell2010
 
 test-suite functional-trading-tests

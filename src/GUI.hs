@@ -89,25 +89,27 @@ shortfallGrainYieldC t goalYield actualYield =
         
 formatPR :: PR Double -> String
 formatPR (PR layers) = unlines $
-    [ "<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'>"
+    [ "<svg xmlns='http://www.w3.org/2000/svg' width='" ++ show svgWidth ++ "' height='" ++ show svgHeight ++ "'>"
     , "<rect width='100%' height='100%' fill='white'/>"
     ] ++ concatMap renderLayer (zip [0..] layers) ++ ["</svg>"]
     where
+        layerCount = length layers
         nodeRadius = 23
         xSpacing = 80 -- Horizontal spacing between layers
         ySpacing = 80  -- Vertical spacing between nodes in the same layer
-        svgWidth = 800
-        svgHeight = 400
+        svgWidth = layerCount * xSpacing + 50
+        svgHeight = layerCount * ySpacing + 50
 
         -- Calculate the position of a node (left-to-right layout)
         nodePosition :: Int -> Int -> (Double, Double)
         nodePosition layerIndex nodeIndex =
-            let x = fromIntegral layerIndex * xSpacing + 50 -- Horizontal position based on layer
+            let x = fromIntegral layerIndex * fromIntegral xSpacing + 50 -- Convert xSpacing to Double
                 y = if layerIndex + 1 < length layers
-                    then    let (_, yChild1) = nodePosition (layerIndex + 1) nodeIndex
-                                (_, yChild2) = nodePosition (layerIndex + 1) (nodeIndex + 1)
-                            in (yChild1 + yChild2) / 2 -- Position in the middle of the two children
-                    else fromIntegral svgHeight / 2 + fromIntegral (nodeIndex - layerIndex `div` 2) * ySpacing -- Default for the last layer
+                    then let (_, yChild1) = nodePosition (layerIndex + 1) nodeIndex
+                             (_, yChild2) = nodePosition (layerIndex + 1) (nodeIndex + 1)
+                        in (yChild1 + yChild2) / 2 -- Position in the middle of the two children
+                    else fromIntegral svgHeight / 2
+                        + fromIntegral (nodeIndex - layerIndex `div` 2) * fromIntegral ySpacing -- Convert ySpacing to Double
             in (x, y)
 
         -- Render a single layer of nodes and edges
@@ -119,13 +121,16 @@ formatPR (PR layers) = unlines $
                         else []
             in edges ++ map (renderNode layerIndex) nodes
 
-        -- Render a single node
         renderNode :: Int -> (Int, Double) -> String
         renderNode layerIndex (nodeIndex, value) =
             let (x, y) = nodePosition layerIndex nodeIndex
-                halfSize = fromIntegral nodeRadius -- Half the size of the square
-            in "<rect x='" ++ show (x - halfSize) ++ "' y='" ++ show (y - halfSize) ++ "' width='" ++ show (2 * halfSize) ++ "' height='" ++ show (2 * halfSize) ++ "' fill='lightblue' stroke='black' />"
-                ++ "<text x='" ++ show (x - 10) ++ "' y='" ++ show (y + 5) ++ "' font-size='15' fill='black'>" ++ printf "%.2f" value ++ "</text>"
+                valStr = printf "%.2f" value -- Format the number to two decimal places
+                textWidth = fromIntegral (length valStr) * 8 -- Approximate width of the text (8px per character)
+                rectWidth = max (textWidth + 10) 40 -- Add padding and ensure a minimum width
+                rectHeight = rectWidth -- Fixed height for the rectangle
+            in "<rect x='" ++ show (x - rectWidth / 2) ++ "' y='" ++ show (y - rectHeight / 2) ++ "' width='" ++ show rectWidth ++ "' height='" ++ show rectHeight ++ "' fill='lightblue' stroke='black'  />"
+                ++ "<text x='" ++ show x ++ "' y='" ++ show (y+2) ++ "' font-size='15' fill='black' text-anchor='middle' dominant-baseline='middle'>" ++ valStr ++ "</text>"
+
 
         -- Render edges between layers
         renderEdge :: Int -> Int -> [String]
