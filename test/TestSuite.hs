@@ -33,7 +33,9 @@ main = defaultMain $ testGroup "All Tests"
       , testProperty "orMax"                      prop_or_max
       ]
   , testGroup "HUnit tests"
-      [ testCase "PR_structure"                   unit_test_PR_structure
+      [ testCase "pr_structure"                   unit_test_pr_structure
+      , testCase "month_model_pr"                 unit_test_month_model_pr
+      , testCase "day_model_pr"                   unit_test_day_model_pr
       , testCase "acquireOnStartDate"             unit_test_acquireOnStartDate
       , testCase "profitable_european"            unit_test_profitable_european
       , testCase "unprofitable_european"          unit_test_unprofitable_european
@@ -220,14 +222,33 @@ prop_or_max c1 c2 =
 -- Basic HUnit tests
 ----------------------------------------------------------------
 
-unit_test_PR_structure :: Assertion
-unit_test_PR_structure = 
+unit_test_pr_structure :: Assertion
+unit_test_pr_structure = 
   let result = eval modelWithMonthStep (AcquireOn (date "20-04-2025") (One GBP))
   in case result of
        Left err ->
          assertFailure ("eval returned Left: " ++ err)
        Right (PR layers) ->
          length (layers !! 3) @?= 4
+
+unit_test_month_model_pr :: Assertion
+unit_test_month_model_pr = 
+  let result = eval modelWithMonthStep (AcquireOn (date "20-04-2025") (One GBP))
+  in case result of
+       Left err ->
+         assertFailure ("eval returned Left: " ++ err)
+       Right (PR layers) ->
+         length layers @?= (daysBetween sampleStartDate (date "20-04-2025")) `div` 30 + 1     
+
+unit_test_day_model_pr :: Assertion
+unit_test_day_model_pr = 
+  let result = eval modelWithDayStep (AcquireOn (date "20-04-2025") (One GBP))
+  in case result of
+       Left err ->
+         assertFailure ("eval returned Left: " ++ err)
+       Right (PR layers) ->
+         length layers @?= daysBetween sampleStartDate (date "20-04-2025") + 1     
+
 
 unit_test_acquireOnStartDate :: Assertion
 unit_test_acquireOnStartDate = 
