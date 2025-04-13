@@ -34,6 +34,7 @@ h1 {
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     border: 1px solid #3D454C;
+    font-size: 1em;
     
 }
 
@@ -79,6 +80,8 @@ select, input, button {
     background-color: transparent;
     color: #ffffff;
     box-sizing: border-box;
+    font-family:'Lucida Console', monospace;
+    font-size: 1em !important;
 }
 
 select:hover, input:hover, button:hover {
