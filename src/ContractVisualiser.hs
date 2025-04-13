@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module GUI where
+module ContractVisualiser where
 
 import Text.Printf (printf)
 
@@ -96,7 +96,7 @@ formatPR (PR layers) = unlines $
         xSpacing = nodeSize + 25 -- Horizontal spacing between layers
         ySpacing = nodeSize + 25  -- Vertical spacing between nodes in the same layer
         svgWidth = layerCount * xSpacing + 50
-        svgHeight = layerCount * ySpacing + 60
+        svgHeight = layerCount * ySpacing + 80
         
 
         -- Render a single layer of nodes and edges

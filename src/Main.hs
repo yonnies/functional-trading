@@ -11,10 +11,11 @@ import GHC.Generics (Generic)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Middleware.Cors (cors, simpleCorsResourcePolicy, CorsResourcePolicy(..))
 import Control.Monad.IO.Class (liftIO)
+
 import ContractsDSL
 import ModelUtils
 import EvaluationEngine
-import GUI 
+import ContractVisualiser 
 
 
 -- Define the input and output types

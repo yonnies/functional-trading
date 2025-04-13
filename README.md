@@ -39,13 +39,18 @@ To serve the GUI client locally:
    ```
 > **Important:** Use port `12126` because the backend is configured to accept requests only from this port.
 
-3. Open your browser and navigate to:
+3. Open your browser (preferably Chrome) and navigate to:
    ```
    http://localhost:12126/contract-evaluator.html
    ```
 
-
 > **Important:** Ensure the backend is running before interacting with the GUI client. 
+
+### Example of the GUI Client
+
+Below is an example of the GUI client in action:
+
+![Contract Evaluator](client-gui.png)
 
 
 ## Benchmarking

@@ -12,6 +12,7 @@ library
         ModelUtils
         Main
         ContractParser
+        ContractVisualiser
     build-depends:
         base >=4.14 && <5,
         time,
@@ -57,7 +58,7 @@ executable functional-trading
         ContractsDSL
         EvaluationEngine
         ModelUtils
-        GUI
+        ContractVisualiser
     default-language: Haskell2010
 
 test-suite functional-trading-tests
