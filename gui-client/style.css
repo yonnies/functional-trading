@@ -1,5 +1,5 @@
 body {
-    font-family: Arial, sans-serif;
+    font-family:'Lucida Console', monospace;
     background-color: #02040A;
     margin: 0;
     padding: 0;
@@ -9,8 +9,7 @@ h1 {
     color: #66FCF1;
     margin-left: 30px;
     margin-top: 40px;
-    font-family: Georgia, 'Times New Roman', Times, serif;
-    font-size: 2.5em;
+    font-size: 3em;
 }
 
 .boxLabel {
@@ -18,7 +17,6 @@ h1 {
     font-size: 1.5em;
     margin-bottom: 10px;
     margin-top: 20px;
-    font-family: Georgia, 'Times New Roman', Times, serif;
 }
 
 #container {
@@ -36,6 +34,14 @@ h1 {
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     border: 1px solid #3D454C;
+    
+}
+
+#parameters {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    flex-wrap: wrap;
 }
 
 #imageBox {
@@ -53,9 +59,9 @@ h1 {
 
 
 #imageBox svg {
-    width: 100%; /* Make the SVG take the full width of the parent */
-    object-fit: contain; /* Ensure the SVG scales proportionally */
-    display: block; /* Remove any extra spacing caused by inline elements */
+    width: 100%;
+    object-fit: contain;
+    display: block;
 }
 
 .hidden {
@@ -72,29 +78,29 @@ select, input, button {
     border-radius: 4px;
     background-color: transparent;
     color: #ffffff;
-    box-sizing: border-box; /* Ensures consistent width */
+    box-sizing: border-box;
 }
 
 select:hover, input:hover, button:hover {
     outline: none;
-    border-color: #66FCF1;
+    border-color: #37dad2;
 }
 
 select:focus, input:focus, button:focus {
     outline: none;
-    border-color: #66FCF1;
+    border-color: #37dad2;
 }
 
 button {
     cursor: pointer;
     background-color: transparent;
-    border: 2px solid #45A29E;
+    border: 2px solid #37dad2;
     color: #37dad2;
     padding: 10px;
     border-radius: 4px;
 }
 
 button:hover {
-    background-color: #45A29E;
+    background-color: #37dad2;
     color: white;
 }
