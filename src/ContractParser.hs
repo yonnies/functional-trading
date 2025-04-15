@@ -1,6 +1,5 @@
 module ContractParser where
-    
-import ContractsDSL
+
 import Text.Parsec
 import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
@@ -8,6 +7,8 @@ import qualified Text.Parsec.Token as Tok
 import Data.Time (parseTimeM, defaultTimeLocale)
 import Text.Parsec.Expr (Assoc(..), Operator(..), buildExpressionParser)
 import Control.Monad.Identity (Identity)
+
+import ContractsDSL
 
 -- Define a language with Haskell-style comment and whitespace handling
 def :: Tok.LanguageDef ()

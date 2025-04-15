@@ -14,10 +14,11 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Time (getCurrentTime, utctDay)
 
 import ContractsDSL
-import ModelUtils
 import EvaluationEngine
+import ModelUtils
 import ContractVisualiser 
-
+import ContractParser
+import ContractDefinitions
 
 -- Define the input and output types
 data ContractInput = ContractInput
@@ -39,6 +40,32 @@ instance ToJSON ContractResult
 -- Define the API
 type API = "evaluate" :> ReqBody '[JSON] ContractInput :> Post '[JSON] ContractResult
 
+-- Parse and evaluate the contract
+parseContractRequest :: String -> [String] -> Either String Contract
+parseContractRequest "europeanStockCall" [date', strikePrice, stock] =
+  Right $ europeanStockCall (read date') (read strikePrice) (read stock)
+parseContractRequest "europeanStockPut" [date', strikePrice, stock] =
+  Right $ europeanStockPut (read date') (read strikePrice) (read stock)
+parseContractRequest "americanStockCall" [date', strikePrice, stock] =
+  Right $ americanStockCall (read date') (read strikePrice) (read stock)
+parseContractRequest "americanStockPut" [date', strikePrice, stock] =
+  Right $ americanStockPut (read date') (read strikePrice) (read stock)
+parseContractRequest "zcdb" [date', value, currency] =
+  Right $ zcdb (read date') (read value) (read currency)
+parseContractRequest "upAndInOption" [barrierPrice, stock, payoff] =
+  Right $ upAndInOption (read barrierPrice) (read stock) (read payoff)
+parseContractRequest "downAndInOption" [barrierPrice, stock, payoff] =
+  Right $ downAndInOption (read barrierPrice) (read stock) (read payoff)
+parseContractRequest "shortfallGrainYieldC" [date', goalYield, actualYield] =
+  Right $ shortfallGrainYieldC (read date') (read goalYield) (read actualYield)
+parseContractRequest "customContract" [contractString] =
+  case parseContract contractString of
+    Left err -> Left $ "Parse error: " ++ err
+    Right contract -> Right contract
+parseContractRequest _ _ = Left "Invalid contract type or parameters"
+
+-- currency exchange rate lattice
+-- stock price lattice
 
 server :: Date -> Server API
 server today (ContractInput _contractType params) = liftIO $ do

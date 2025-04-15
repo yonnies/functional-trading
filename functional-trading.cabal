@@ -4,7 +4,7 @@ version: 0.1.0.0
 build-type: Simple
 
 library
-    hs-source-dirs: src
+    hs-source-dirs: src src/library
     exposed-modules:
         ContractsDSL
         EvaluationEngine
@@ -13,6 +13,7 @@ library
         Main
         ContractParser
         ContractVisualiser
+        ContractDefinitions
     build-depends:
         base >=4.14 && <5,
         time,
@@ -34,7 +35,7 @@ library
 
 executable functional-trading
     main-is: Main.hs
-    hs-source-dirs: src
+    hs-source-dirs: src src/library
     ghc-options: -O2 -Wall
     build-depends:
         base >=4.14 && <5,
@@ -60,6 +61,7 @@ executable functional-trading
         ModelUtils
         ContractVisualiser
         ContractParser
+        ContractDefinitions
     default-language: Haskell2010
 
 test-suite functional-trading-tests

@@ -3,87 +3,8 @@ module ContractVisualiser where
 
 import Text.Printf (printf)
 
-import ContractsDSL
 import ModelUtils
-import ContractParser 
 
--- Parse and evaluate the contract
-parseContractRequest :: String -> [String] -> Either String Contract
-parseContractRequest "europeanStockCall" [date', strikePrice, stock] =
-  Right $ europeanStockCall (read date') (read strikePrice) (read stock)
-parseContractRequest "europeanStockPut" [date', strikePrice, stock] =
-  Right $ europeanStockPut (read date') (read strikePrice) (read stock)
-parseContractRequest "americanStockCall" [date', strikePrice, stock] =
-  Right $ americanStockCall (read date') (read strikePrice) (read stock)
-parseContractRequest "americanStockPut" [date', strikePrice, stock] =
-  Right $ americanStockPut (read date') (read strikePrice) (read stock)
-parseContractRequest "zcdb" [date', value, currency] =
-  Right $ zcdb (read date') (read value) (read currency)
-parseContractRequest "upAndInOption" [barrierPrice, stock, payoff] =
-  Right $ upAndInOption (read barrierPrice) (read stock) (read payoff)
-parseContractRequest "downAndInOption" [barrierPrice, stock, payoff] =
-  Right $ downAndInOption (read barrierPrice) (read stock) (read payoff)
-parseContractRequest "shortfallGrainYieldC" [date', goalYield, actualYield] =
-  Right $ shortfallGrainYieldC (read date') (read goalYield) (read actualYield)
-parseContractRequest "customContract" [contractString] =
-  case parseContract contractString of
-    Left err -> Left $ "Parse error: " ++ err
-    Right contract -> Right contract
-parseContractRequest _ _ = Left "Invalid contract type or parameters"
-
--- currency exchange rate lattice
--- stock price lattice
-
-europeanStockCall :: Date -> Double -> Stock -> Contract
-europeanStockCall t strikePrice stk = 
-    AcquireOn t 
-        (Scale (StockPrice stk) (One GBP) `And` 
-        Give (Scale (Konst strikePrice) (One GBP))) 
-    `Or` AcquireOn t None
-
-europeanStockPut :: Date -> Double -> Stock -> Contract
-europeanStockPut t strikePrice stk = 
-    AcquireOn t 
-        (Scale (Konst strikePrice) (One GBP) `And` 
-        Give (Scale (StockPrice stk) (One GBP)))
-    `Or` AcquireOn t None
-
-americanStockCall :: Date -> Double -> Stock -> Contract
-americanStockCall t strikePrice stk = 
-    AcquireOnBefore t 
-        (Scale (StockPrice stk) (One GBP) `And` 
-        Give (Scale (Konst strikePrice) (One GBP))) 
-    `Or` AcquireOn t None
-
-
-americanStockPut :: Date -> Double -> Stock -> Contract
-americanStockPut t strikePrice stk = 
-    AcquireOnBefore t 
-        (Scale (Konst strikePrice) (One GBP) `And` 
-        Give (Scale (StockPrice stk) (One GBP)))
-    `Or` AcquireOn t None
-
-zcdb :: Date -> Double -> Currency -> Contract
-zcdb t val cur = AcquireOn t (Scale (Konst val) (One cur))
-
-upAndInOption :: Double -> Stock -> Double -> Contract
-upAndInOption barrierPrice stk payoff =
-            AcquireWhen (StockPrice stk %>= Konst barrierPrice) 
-                        (Scale (Konst payoff) (One GBP)) -- Activate the contract if the barrier is breached
-
-downAndInOption :: Double -> Stock -> Double -> Contract
-downAndInOption barrierPrice stk payoff =
-            AcquireWhen (StockPrice stk %<= Konst barrierPrice) 
-                        (Scale (Konst payoff) (One GBP)) -- Activate the contract if the barrier is breached
-
-shortfall :: Double -> Double -> Obs Double
-shortfall goalYield actualYield = MaxObs (Konst 0) (Konst goalYield - GrainYield actualYield)
-
-shortfallGrainYieldC :: Date -> Double -> Double -> Contract
-shortfallGrainYieldC t goalYield actualYield =
-    AcquireOn t (Scale ((shortfall goalYield actualYield) * Konst 3) (One USD))
-
-        
 formatPR :: PR Double -> String
 formatPR (PR layers) = unlines $
     [ "<svg xmlns='http://www.w3.org/2000/svg' width='" ++ show svgWidth ++ "' height='" ++ show svgHeight ++ "'>"
