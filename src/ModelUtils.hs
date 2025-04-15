@@ -51,7 +51,7 @@ lift :: (a -> b) -> PR a -> PR b
 lift f (PR xss) = PR [[f x | x <- xs] | xs <- xss]
 
 lift2Preserve :: (a -> a -> a) -> PR a -> PR a -> PR a    
-lift2Preserve f (PR xss) (PR yss) = PR $ combine xss yss
+lift2Preserve f (PR pr1) (PR pr2) = PR $ combine pr1 pr2
     where
         combine xss [] = xss
         combine [] yss = yss

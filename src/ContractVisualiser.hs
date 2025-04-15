@@ -9,27 +9,27 @@ import ContractParser
 
 -- Parse and evaluate the contract
 parseContractRequest :: String -> [String] -> Either String Contract
-parseContractRequest "europeanStockCall" [date, strikePrice, stock] =
-  Right $ europeanStockCall (read date) (read strikePrice) (read stock)
-parseContractRequest "europeanStockPut" [date, strikePrice, stock] =
-  Right $ europeanStockPut (read date) (read strikePrice) (read stock)
-parseContractRequest "americanStockCall" [date, strikePrice, stock] =
-  Right $ americanStockCall (read date) (read strikePrice) (read stock)
-parseContractRequest "americanStockPut" [date, strikePrice, stock] =
-  Right $ americanStockPut (read date) (read strikePrice) (read stock)
-parseContractRequest "zcdb" [date, value, currency] =
-  Right $ zcdb (read date) (read value) (read currency)
+parseContractRequest "europeanStockCall" [date', strikePrice, stock] =
+  Right $ europeanStockCall (read date') (read strikePrice) (read stock)
+parseContractRequest "europeanStockPut" [date', strikePrice, stock] =
+  Right $ europeanStockPut (read date') (read strikePrice) (read stock)
+parseContractRequest "americanStockCall" [date', strikePrice, stock] =
+  Right $ americanStockCall (read date') (read strikePrice) (read stock)
+parseContractRequest "americanStockPut" [date', strikePrice, stock] =
+  Right $ americanStockPut (read date') (read strikePrice) (read stock)
+parseContractRequest "zcdb" [date', value, currency] =
+  Right $ zcdb (read date') (read value) (read currency)
 parseContractRequest "upAndInOption" [barrierPrice, stock, payoff] =
   Right $ upAndInOption (read barrierPrice) (read stock) (read payoff)
 parseContractRequest "downAndInOption" [barrierPrice, stock, payoff] =
   Right $ downAndInOption (read barrierPrice) (read stock) (read payoff)
-parseContractRequest "shortfallGrainYieldC" [date, goalYield, actualYield] =
-  Right $ shortfallGrainYieldC (read date) (read goalYield) (read actualYield)
+parseContractRequest "shortfallGrainYieldC" [date', goalYield, actualYield] =
+  Right $ shortfallGrainYieldC (read date') (read goalYield) (read actualYield)
 parseContractRequest "customContract" [contractString] =
   case parseContract contractString of
     Left err -> Left $ "Parse error: " ++ err
     Right contract -> Right contract
-parseContractRequest _ prms = Left "Invalid contract type or parameters"
+parseContractRequest _ _ = Left "Invalid contract type or parameters"
 
 -- currency exchange rate lattice
 -- stock price lattice
@@ -91,13 +91,15 @@ formatPR (PR layers) = unlines $
     ] ++ concatMap renderLayer (zip [0..] layers) ++ ["</svg>"]
     where
         layerCount = length layers
+        largestVal :: Double
         largestVal = maximum (concat layers)
-        nodeSize = (length (show (round largestVal)) + 2) * 8 + 20 -- Approximate width of the text (8px per character)
+        largestValInt :: Int
+        largestValInt = floor largestVal
+        nodeSize = (length (show largestValInt) + 2) * 8 + 20 -- Approximate width of the text (8px per character)
         xSpacing = nodeSize + 25 -- Horizontal spacing between layers
         ySpacing = nodeSize + 25  -- Vertical spacing between nodes in the same layer
         svgWidth = layerCount * xSpacing + 50
         svgHeight = layerCount * ySpacing + 80
-        
 
         -- Render a single layer of nodes and edges
         renderLayer :: (Int, [Double]) -> [String]
@@ -112,9 +114,9 @@ formatPR (PR layers) = unlines $
         renderNode layerIndex (nodeIndex, value) =
             let (x, y) = nodePosition layerIndex nodeIndex
                 valStr = printf "%.2f" value -- Format the number to two decimal places
-                halfNodeSize = fromIntegral nodeSize / 2 -- Convert nodeSize to Double
-            in "<rect x='" ++ show (x - halfNodeSize) ++ "' y='" ++ show (y - halfNodeSize) ++ "' width='" ++ show (fromIntegral nodeSize) ++ "' height='" ++ show (fromIntegral nodeSize) ++ "' fill='white' stroke='gray'  />"
-                ++ "<text x='" ++ show x ++ "' y='" ++ show (y + 2) ++ "' font-size='15' fill='black' text-anchor='middle' dominant-baseline='middle'>" ++ valStr ++ "</text>"
+                halfNodeSize = fromIntegral nodeSize / 2.0 -- Convert nodeSize to Double
+            in "<rect x='" ++ show (x - halfNodeSize) ++ "' y='" ++ show (y - halfNodeSize) ++ "' width='" ++ show (fromIntegral nodeSize :: Double) ++ "' height='" ++ show (fromIntegral nodeSize :: Double) ++ "' fill='white' stroke='gray'  />"
+                ++ "<text x='" ++ show x ++ "' y='" ++ show (y + 2.0) ++ "' font-size='15' fill='black' text-anchor='middle' dominant-baseline='middle'>" ++ valStr ++ "</text>"
 
         -- Render edges between layers
         renderEdge :: Int -> Int -> [String]

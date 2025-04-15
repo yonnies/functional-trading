@@ -59,6 +59,7 @@ executable functional-trading
         EvaluationEngine
         ModelUtils
         ContractVisualiser
+        ContractParser
     default-language: Haskell2010
 
 test-suite functional-trading-tests

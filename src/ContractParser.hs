@@ -5,7 +5,7 @@ import Text.Parsec
 import Text.Parsec.String (Parser)
 import Text.Parsec.Language (emptyDef)
 import qualified Text.Parsec.Token as Tok
-import Data.Time (Day, parseTimeM, defaultTimeLocale)
+import Data.Time (parseTimeM, defaultTimeLocale)
 import Text.Parsec.Expr (Assoc(..), Operator(..), buildExpressionParser)
 import Control.Monad.Identity (Identity)
 
@@ -28,6 +28,11 @@ lexer :: Tok.TokenParser ()
 lexer = Tok.makeTokenParser def
 
 -- Shortcuts for common parsers with automatic whitespace handling
+
+symbol     :: String -> Parser String
+parens     :: Parser a -> Parser a
+reserved   :: String -> Parser ()
+reservedOp :: String -> Parser ()
 symbol     = Tok.symbol lexer     -- For parsing symbols with trailing spaces
 parens     = Tok.parens lexer     -- Handles "(...)" with automatic spaces
 reserved   = Tok.reserved lexer   -- For reserved names (keywords)
