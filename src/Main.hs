@@ -11,6 +11,7 @@ import GHC.Generics (Generic)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Middleware.Cors (cors, simpleCorsResourcePolicy, CorsResourcePolicy(..))
 import Control.Monad.IO.Class (liftIO)
+import Data.Time (getCurrentTime, utctDay)
 
 import ContractsDSL
 import ModelUtils
@@ -39,8 +40,8 @@ instance ToJSON ContractResult
 type API = "evaluate" :> ReqBody '[JSON] ContractInput :> Post '[JSON] ContractResult
 
 
-server :: Server API
-server (ContractInput _contractType params) = liftIO $ do
+server :: Date -> Server API
+server today (ContractInput _contractType params) = liftIO $ do
   putStrLn $ "Received request: " ++ _contractType ++ " with params: " ++ show params
   case parseContractRequest _contractType params of
     Left err -> do
@@ -67,5 +68,6 @@ main = do
         , corsMethods = ["GET", "POST", "OPTIONS"] -- Allow these HTTP methods
         , corsRequestHeaders = ["Content-Type"] -- Allow these headers
         }
+  today <- utctDay <$> getCurrentTime
   putStrLn $ "Server is listening on port " ++ show port
-  run port $ cors (const $ Just corsPolicy) $ serve (Proxy :: Proxy API) server
+  run port $ cors (const $ Just corsPolicy) $ serve (Proxy :: Proxy API) (server today)

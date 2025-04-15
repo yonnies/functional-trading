@@ -53,7 +53,6 @@ main = defaultMain $ testGroup "All Tests"
       ]
   ]
 
-
 ----------------------------------------------------------------
 -- Generic helper to compare two evaluated contracts in HUnit
 ----------------------------------------------------------------
@@ -249,7 +248,6 @@ unit_test_day_model_pr =
        Right (PR layers) ->
          length layers @?= daysBetween sampleStartDate (date "20-04-2025") + 1     
 
-
 unit_test_acquireOnStartDate :: Assertion
 unit_test_acquireOnStartDate = 
   let leftE        = eval modelWithMonthStep (AcquireOn (startDate modelWithMonthStep) (One USD))
@@ -291,7 +289,6 @@ unit_test_unprofitable_american =
       leftE  = eval modelWithMonthStep contract
       rightE = eval modelWithMonthStep underlying
   in assertPRApproxEqual "UnprofitableAmerican" leftE rightE
-
 
 unit_test_american_vs_eu :: Assertion
 unit_test_american_vs_eu = 
@@ -341,6 +338,7 @@ unit_test_unsupported_currency =
        Left _    -> return ()  -- Expected failure, test passes
        Right pr  -> assertFailure ("Expected failure but got: " ++ show pr)
 
+-- Using an unsupported stock should fail
 unit_test_unsupported_stock :: Assertion
 unit_test_unsupported_stock = 
   let contract = AcquireOn (date "05-02-2025") ((Scale (StockPrice MSFT)) (One GBP))

@@ -22,10 +22,10 @@ date s = case parseTimeM True defaultTimeLocale "%d-%m-%Y" s of
                 Just a -> a
                 Nothing -> error $ s ++ " is not a valid date."
 
--- Today’s date
--- Example placeholder, should be dynamically fetched in a real system
-today :: Date
-today = date "01-11-2024"
+-- -- Today’s date
+-- -- Example placeholder, should be dynamically fetched in a real system
+-- today :: Date
+-- today = date "01-11-2024"
 
 -- Calculate the number of days between two dates
 daysBetween :: Date -> Date -> Days
