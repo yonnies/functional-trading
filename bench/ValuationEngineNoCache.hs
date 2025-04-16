@@ -182,7 +182,7 @@ evalDO model (MaxObs o1 o2) = do
   po1 <- evalDO model o1
   po2 <- evalDO model o2
   return (maxPR po1 po2)
-evalDO' model (GrainYield amount) = do
+evalDO model (GrainYield amount) = do
   return (constPr model amount) -- For simplicity, we assume grain yield is constant
 
 evalBO :: Model -> Obs Bool -> EvalM (PR Bool)

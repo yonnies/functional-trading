@@ -11,11 +11,6 @@ import ValuationEngineNoCache  -- Version without caching
 import ModelUtils
 import ContractDefinitions
 
-european :: Date -> Contract -> Double -> Contract
-european t underlying strikePrice = 
-  AcquireOn t (underlying `And` Give (Scale (Konst strikePrice) (One GBP))) 
-  `Or` AcquireOn t None 
-
 --------------------------------------------------------
 -- Contracts without repetition
 --------------------------------------------------------
@@ -24,7 +19,15 @@ simpleBond :: Contract
 simpleBond = zcdb (date "06-11-2028") 1000 GBP
 
 simpleOpt :: Contract
-simpleOpt = european (date "01-03-2035") (Scale (StockPrice DIS) (One GBP)) 100
+simpleOpt = europeanStockCall (date "01-03-2035") 100 DIS
+
+multipleNestedOptionsNoRepetition :: Contract
+multipleNestedOptionsNoRepetition =
+  let
+      option1 = europeanStockPut (date "01-01-2035") 1.15 TSLA
+      option2 = americanStockCall (date "01-01-2035") 200 NVDA
+      option3 = americanStockPut (date "01-01-2030") 50 DIS
+  in AcquireOn (date "01-01-2026") (And (Give option3) (Or option1 option2))
 
 complexNonRepetitiveContract :: Contract
 complexNonRepetitiveContract =
@@ -34,7 +37,7 @@ complexNonRepetitiveContract =
         Scale (StockPrice TSLA - Konst 100) (One USD)
       )
       (Or
-        (Give $ european (date "01-06-2030") (Scale (StockPrice NVDA) (One EUR)) 200)
+        (Give $ europeanStockCall (date "01-06-2030") 200 NVDA)
         (AcquireOnBefore (date "01-01-2035") $
           And
             (zcdb (date "01-06-2035") 500 GBP)
@@ -90,11 +93,11 @@ multipleNestedOptionsContract :: Contract
 multipleNestedOptionsContract =
   let
       -- Repeated sub-contracts
-      option1 = european (date "01-01-2035") (One EUR) 1.15
-      option2 = european (date "01-01-2035") (Scale (StockPrice NVDA) (One USD)) 200
+      option1 = europeanStockPut (date "01-01-2035") 1.15 TSLA
+      option2 = americanStockCall (date "01-01-2035") 200 NVDA
 
       -- Not repeated
-      option3 = european (date "01-01-2030") (Scale (StockPrice DIS) (One GBP)) 50
+      option3 = americanStockPut (date "01-01-2030") 50 DIS
       
       -- Nested structure with repetition
       tree1 = And (Give option1) (Or option1 option2)
@@ -102,6 +105,33 @@ multipleNestedOptionsContract =
       tree3 = Or tree2 (And tree1 tree2)
   in AcquireOn (date "01-01-2026") tree3
 
+multipleNestedOptionsNoRepetition2 :: Contract
+multipleNestedOptionsNoRepetition2 =
+  let
+      -- Base options
+      option1 = europeanStockPut (date "01-01-2035") 1.15 TSLA
+      option2 = americanStockCall (date "01-01-2035") 200 NVDA
+      option3 = americanStockPut (date "01-01-2030") 50 DIS
+      option4 = europeanStockCall (date "01-01-2033") 300 AAPL
+      option5 = americanStockPut (date "01-01-2032") 75 MSFT
+
+      -- First layer of nesting
+      layer1 = And (Give option1) (Or option2 option3)
+      layer2 = Or (Scale (Konst 2.0) layer1) (And option4 option5)
+
+      -- Second layer of nesting
+      layer3 = AcquireOn (date "01-01-2027") (And layer1 layer2)
+      layer4 = AcquireOnBefore (date "01-01-2028") (Or layer2 (Give layer3))
+
+      -- Third layer of nesting
+      layer5 = Scale (StockPrice TSLA + Konst 10) (And layer3 layer4)
+      layer6 = Or (AcquireWhen (StockPrice NVDA %>= Konst 500) layer5) (Give layer4)
+
+      -- Fourth layer of nesting
+      layer7 = And (Scale (Konst 0.5) layer6) (AcquireOn (date "01-01-2026") layer5)
+      layer8 = Or (AcquireOnBefore (date "01-05-2025") layer7) (Scale (Konst 1.5) layer6)
+
+  in AcquireOn (date "01-01-2025") (And layer7 layer8)
 
 --------------------------------------------------------
 -- Benchmark main
@@ -128,6 +158,14 @@ main = do
       , bgroup "Complex Example"
         [ bench "With Cache"    $ nf (ValuationEngine.eval model) complexNonRepetitiveContract
         , bench "Without Cache" $ nf (ValuationEngineNoCache.eval model) complexNonRepetitiveContract
+        ]
+      , bgroup "Multiple Nested Options"
+        [ bench "With Cache"    $ nf (ValuationEngine.eval model) multipleNestedOptionsNoRepetition
+        , bench "Without Cache" $ nf (ValuationEngineNoCache.eval model) multipleNestedOptionsNoRepetition
+        ]
+      , bgroup "Multiple Nested Options No Repetition 2"
+        [ bench "With Cache"    $ nf (ValuationEngine.eval model) multipleNestedOptionsNoRepetition2
+        , bench "Without Cache" $ nf (ValuationEngineNoCache.eval model) multipleNestedOptionsNoRepetition2
         ]
       ]
     , bgroup "Contracts with repetition"

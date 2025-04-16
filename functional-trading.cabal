@@ -98,4 +98,6 @@ benchmark caching
         criterion,
         random,
         functional-trading
+    other-modules:
+        ValuationEngineNoCache
     default-language: Haskell2010
