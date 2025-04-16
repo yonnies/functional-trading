@@ -14,7 +14,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.Time (getCurrentTime, utctDay)
 
 import ContractsDSL
-import EvaluationEngine
+import ValuationEngine
 import ModelUtils
 import ContractVisualiser 
 import ContractParser

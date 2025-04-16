@@ -18,6 +18,12 @@ This project implements a user-friendly embedded Domain-Specific Language (eDSL)
 
 ## How to Run
 
+### GHCI
+```bash
+cabal build
+cabal repl
+```
+
 ### Backend
 To build and run the backend:
 ```bash

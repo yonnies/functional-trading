@@ -39,7 +39,7 @@ instance (NFData a) => NFData (PR a) where
   rnf (PR slices) = rnf slices
 
 instance Num a => Num (PR a) where
-    (+) = lift2 (+)
+    (+) = lift2Preserve (+)
     (-) = lift2 (-)
     (*) = lift2 (*)
     abs = lift abs
@@ -61,10 +61,10 @@ lift2Preserve f (PR pr1) (PR pr2) = PR $ combine pr1 pr2
 lift2 :: (a -> b -> c) -> PR a -> PR b -> PR c
 lift2 f (PR xss) (PR yss) = PR [[f x y | (x,y) <- zip xs ys ] | (xs,ys) <- zip xss yss]
 
-maximumValToday :: PR Double -> PR Double -> PR Double
-maximumValToday (PR []) pr = pr
-maximumValToday pr (PR []) = pr
-maximumValToday (PR (xs:xss)) (PR (ys:yss)) = if xs !! 0 > ys !! 0 then PR (xs:xss) else PR (ys:yss)
+maxValToday :: PR Double -> PR Double -> PR Double
+maxValToday (PR []) pr = pr
+maxValToday pr (PR []) = pr
+maxValToday (PR (xs:xss)) (PR (ys:yss)) = if xs !! 0 > ys !! 0 then PR (xs:xss) else PR (ys:yss)
 
 maxPR :: Ord a => PR a -> PR a -> PR a
 maxPR = lift2Preserve max

@@ -11,7 +11,7 @@ import Control.Monad.State
 
 import ContractsDSL 
 import ModelUtils
-import EvaluationEngine
+import ValuationEngine
 import ContractParser
 
 ----------------------------------------------------------------
@@ -115,9 +115,6 @@ a ≈ b = case (a, b) of
 -- Utilities for testing and constructing financial contracts
 ----------------------------------------------------------------
 
-sampleStartDate :: Date
-sampleStartDate = date "01-11-2024"
-
 evalTest :: Model -> Contract -> Bool -> Either String (PR Double)
 evalTest model c optContract= do
   _ <- validityCheck c (startDate model)
@@ -134,6 +131,9 @@ american :: Date -> Contract -> Double -> Contract
 american t underlying strikePrice = 
   AcquireOnBefore t (underlying `And` Give (Scale (Konst strikePrice) (One GBP))) 
   `Or` AcquireOnBefore t None
+
+sampleStartDate :: Date
+sampleStartDate = date "01-11-2024"
 
 modelWithMonthStep :: Model
 modelWithMonthStep = exampleModel sampleStartDate 30
@@ -214,7 +214,7 @@ prop_or_max :: Contract -> Contract -> Property
 prop_or_max c1 c2 =
   within 1000000 $
     let left  = eval modelWithMonthStep (Or c1 c2)
-        right = liftA2 maximumValToday (eval modelWithMonthStep c1) (eval modelWithMonthStep c2)
+        right = liftA2 maxValToday (eval modelWithMonthStep c1) (eval modelWithMonthStep c2)
     in left ≈ right
 
 ----------------------------------------------------------------

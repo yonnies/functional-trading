@@ -93,6 +93,16 @@
           input.type = 'date';
           const today = new Date().toISOString().split('T')[0];
           input.min = today;
+
+          // Add event listener to validate the date
+          input.addEventListener('change', () => {
+            const selectedDate = new Date(input.value);
+            const currentDate = new Date(today);
+            if (selectedDate < currentDate) {
+              alert('The selected date cannot be earlier than today. Please choose a valid date.');
+              input.value = ''; // Clear the invalid date
+            }
+          });
         } else if (label === 'Currency') {
           input = document.createElement('select');
           currencies.forEach(currency => {
