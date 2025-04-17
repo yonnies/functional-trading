@@ -45,7 +45,7 @@
     const resultDiv = document.getElementById('result');
     const textReplyBox = document.getElementById('textReplyBox');
     const imageBox = document.getElementById('imageBox');
-    
+
 
     // List of currencies and stocks
     const currencies = ["GBP", "USD", "EUR", "BGN"];
@@ -93,13 +93,15 @@
           input.type = 'date';
           const today = new Date().toISOString().split('T')[0];
           input.min = today;
+          input.max = '2027-01-30';
 
           // Add event listener to validate the date
           input.addEventListener('change', () => {
             const selectedDate = new Date(input.value);
             const currentDate = new Date(today);
-            if (selectedDate < currentDate) {
-              alert('The selected date cannot be earlier than today. Please choose a valid date.');
+            const maxDate = new Date('2027-01-30');
+            if (selectedDate < currentDate || selectedDate > maxDate) {
+              alert('The selected date must be between today and 30-01-2027. Please choose a valid date.');
               input.value = ''; // Clear the invalid date
             }
           });
@@ -131,64 +133,66 @@
     });
 
     evaluateButton.addEventListener('click', async () => {
-  const contractType = contractDropdown.value;
-  const inputs = Array.from(parametersDiv.querySelectorAll('input, select')).map(input => input.value);
+      const contractType = contractDropdown.value;
+      const inputs = Array.from(parametersDiv.querySelectorAll('input, select')).map(input => input.value);
 
-  try {
-    const response = await fetch('http://localhost:12125/evaluate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contractType, parameters: inputs })
-    });
+      try {
+        const response = await fetch('http://localhost:12125/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contractType, parameters: inputs })
+        });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-    const result = await response.json();
-    resultDiv.textContent = result.result;
+        const result = await response.json();
+        resultDiv.textContent = result.result;
 
-    // Show the textReplyBox and its label
-    textReplyBox.classList.remove('hidden');
-    document.querySelector("label[for='textReplyBox']").classList.remove('hidden');
+        // Show the textReplyBox and its label
+        textReplyBox.classList.remove('hidden');
+        document.querySelector("label[for='textReplyBox']").classList.remove('hidden');
 
-    // Show the imageBox and its label
-    imageBox.classList.remove('hidden');
-    document.querySelector("label[for='imageBox']").classList.remove('hidden');
+        // Show the imageBox and its label
+        imageBox.classList.remove('hidden');
+        document.querySelector("label[for='imageBox']").classList.remove('hidden');
 
-    // Display the SVG in the imageBox
-    const svgContainer = document.createElement('div');
-    svgContainer.innerHTML = result.svg;
-    imageBox.innerHTML = ''; // Clear previous SVG
-    imageBox.appendChild(svgContainer);
+        // Display the SVG in the imageBox
+        const svgContainer = document.createElement('div');
+        svgContainer.innerHTML = result.svg;
+        imageBox.innerHTML = ''; // Clear previous SVG
+        imageBox.appendChild(svgContainer);
 
-    // Show the download button
-    const downloadButton = document.getElementById('downloadButton');
-    downloadButton.classList.remove('hidden');
+        console.log(result.svg);
 
-    // Add download functionality
-    downloadButton.addEventListener('click', () => {
-      const svgElement = svgContainer.querySelector('svg');
-      if (svgElement) {
-        const serializer = new XMLSerializer();
-        const svgBlob = new Blob([serializer.serializeToString(svgElement)], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(svgBlob);
+        // Show the download button
+        const downloadButton = document.getElementById('downloadButton');
+        downloadButton.classList.remove('hidden');
 
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'image.svg';
-        link.click();
+        // Add download functionality
+        downloadButton.addEventListener('click', () => {
+          const svgElement = svgContainer.querySelector('svg');
+          if (svgElement) {
+            const serializer = new XMLSerializer();
+            const svgBlob = new Blob([serializer.serializeToString(svgElement)], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(svgBlob);
 
-        URL.revokeObjectURL(url); // Clean up the URL object
-      } else {
-        alert('No SVG found to download.');
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'image.svg';
+            link.click();
+
+            URL.revokeObjectURL(url); // Clean up the URL object
+          } else {
+            alert('No SVG found to download.');
+          }
+        });
+      } catch (error) {
+        console.error('Error communicating with the back end:', error);
+        alert('Failed to communicate with the back end. Please try again.');
       }
     });
-  } catch (error) {
-    console.error('Error communicating with the back end:', error);
-    alert('Failed to communicate with the back end. Please try again.');
-  }
-});
   </script>
 </body>
 

@@ -49,4 +49,4 @@ shortfall goalYield actualYield = MaxObs (Konst 0) (Konst goalYield - GrainYield
 
 shortfallGrainYieldC :: Date -> Double -> Double -> Contract
 shortfallGrainYieldC t goalYield actualYield =
-    AcquireOn t (Scale ((shortfall goalYield actualYield) * Konst 3) (One USD))
+    AcquireOn t (Scale ((shortfall goalYield actualYield) * Konst 3) (One GBP))

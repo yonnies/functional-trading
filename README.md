@@ -72,25 +72,11 @@ cabal bench caching
 cabal bench optimasation-layer
 ```
 
-## Running Tests with Coverage
-To run tests with code coverage:
-
-### Step 1: Configure for test coverage
+## Running Tests 
+To run tests 
 ```bash
-echo "ignore-project: False
-tests: True
-coverage: True
-library-coverage: True" > cabal.project.local
+cabal test
 ```
-
-### Step 2: Clean, configure, and run tests
-```bash
-cabal clean
-cabal configure --enable-tests --enable-coverage
-cabal build --enable-coverage
-cabal test --enable-coverage
-```
-<!-- **Note:** Coverage reports will be generated in `dist-newstyle/hpc/` (use `hpc report` to view). -->
 
 
 ## Project goals list:
