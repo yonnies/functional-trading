@@ -140,8 +140,8 @@ exampleModel start step = Model {
                     [ (DIS, stockRates 109.12 0.2253 (stepSizeD / 30)) 
                     , (TSLA, stockRates 338.74 0.9899 (stepSizeD / 30))
                     , (NVDA, stockRates 140.15 0.3821 (stepSizeD / 30))
-                    , (RACE, PR $ (stockWithDividend 401.88 (addDays 90 start) 20)) -- Dummy stock that pays dividend
-                    , (AAPL, PR $ (stockWithSpike 100.88 (addDays 90 start) 1.5)) -- Dummy stock with spike
+                    , (RACE, PR $ (stockWithDividend 400.00 (addDays 90 start) 20)) -- Dummy stock that pays dividend for american options
+                    , (AAPL, PR $ (stockWithSpike 100.00 (addDays 90 start) 1.5)) -- Dummy stock with spike for barrier options
                     ]
 
                 stockRates :: Double -> Double -> Double -> PR Double
@@ -160,10 +160,11 @@ exampleModel start step = Model {
         constPrWithChange value changeDate modify = [generateLayer n | n <- [0..]]
             where
                 changeLayer = (daysBetween start changeDate) `div` step
+                modifiedVal = modify value
 
                 generateLayer :: Int -> ValSlice Double
                 generateLayer n
-                    | n >= changeLayer = replicate (n + 1) (modify value) -- Apply modification
+                    | n >= changeLayer = replicate (n + 1) modifiedVal -- Apply modification
                     | otherwise = replicate (n + 1) value -- Constant values
 
         -- Volatility is annualised

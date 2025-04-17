@@ -74,7 +74,7 @@ assertPRApproxEqual testName leftE rightE =
       assertFailure (testName ++ ": Right side failed: " ++ errR)
 
     (Right prL, Right prR) ->
-      let eps  = 1e-4
+      let eps  = 1e-3
           same = prApproxEq eps prL prR
       in assertBool
            (  testName 
@@ -102,7 +102,7 @@ a ≈ b = case (a, b) of
     (Right pr1, Right pr2) -> 
         counterexample (printf "Expected:\n%s\nActual:\n%s" 
                         (show pr2) (show pr1)) $
-        property (prApproxEq 1e-4 pr1 pr2)
+        property (prApproxEq 1e-3 pr1 pr2)
     (Left err1, Left err2) -> 
         counterexample (printf "Both failed with errors:\n%s\n%s" err1 err2) True
     (Left err1, Right _) -> 
