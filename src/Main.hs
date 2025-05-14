@@ -43,19 +43,19 @@ type API = "evaluate" :> ReqBody '[JSON] ContractInput :> Post '[JSON] ContractR
 -- Parse and evaluate the contract
 parseContractRequest :: String -> [String] -> Either String Contract
 parseContractRequest "europeanStockCall" [date', strikePrice, stock] =
-  Right $ europeanStockCall (read date') (read strikePrice) (read stock)
+  Right $ europeanStockCall (read date') (read strikePrice) (read $ head $ words stock)
 parseContractRequest "europeanStockPut" [date', strikePrice, stock] =
-  Right $ europeanStockPut (read date') (read strikePrice) (read stock)
+  Right $ europeanStockPut (read date') (read strikePrice) (read $ head $ words stock)
 parseContractRequest "americanStockCall" [date', strikePrice, stock] =
-  Right $ americanStockCall (read date') (read strikePrice) (read stock)
+  Right $ americanStockCall (read date') (read strikePrice) (read $ head $ words stock)
 parseContractRequest "americanStockPut" [date', strikePrice, stock] =
-  Right $ americanStockPut (read date') (read strikePrice) (read stock)
+  Right $ americanStockPut (read date') (read strikePrice) (read $ head $ words stock)
 parseContractRequest "zcdb" [date', value, currency] =
   Right $ zcdb (read date') (read value) (read currency)
 parseContractRequest "upAndInOption" [barrierPrice, stock, payoff] =
-  Right $ upAndInOption (read barrierPrice) (read stock) (read payoff)
+  Right $ upAndInOption (read barrierPrice) (read $ head $ words stock) (read payoff)
 parseContractRequest "downAndInOption" [barrierPrice, stock, payoff] =
-  Right $ downAndInOption (read barrierPrice) (read stock) (read payoff)
+  Right $ downAndInOption (read barrierPrice) (read $ head $ words stock) (read payoff)
 parseContractRequest "shortfallGrainYieldC" [date', goalYield, actualYield] =
   Right $ shortfallGrainYieldC (read date') (read goalYield) (read actualYield)
 parseContractRequest "customContract" [contractString] =

@@ -49,7 +49,7 @@
 
     // List of currencies and stocks
     const currencies = ["GBP", "USD", "EUR", "BGN"];
-    const stocks = ["DIS", "TSLA", "NVDA", "MSFT", "RACE", "AAPL"];
+    const stocks = ["DIS (109.12)", "TSLA (338.74)", "NVDA (140.15)", "MSFT (NaN)", "RACE (400.00)", "AAPL (100.00)"];
 
     // Update parameters based on selected contract
     contractDropdown.addEventListener('change', () => {
@@ -93,15 +93,21 @@
           input.type = 'date';
           const today = new Date().toISOString().split('T')[0];
           input.min = today;
-          input.max = '2027-01-30';
+              
+          // Calculate max date = today + 21 months
+          maxDate = new Date(today);
+          maxDate.setMonth(maxDate.getMonth() + 21);
+          maxDate.setDate(28); 
 
+          input.max = maxDate.toISOString().split('T')[0];
+          
           // Add event listener to validate the date
           input.addEventListener('change', () => {
             const selectedDate = new Date(input.value);
             const currentDate = new Date(today);
-            const maxDate = new Date('2027-01-30');
+            // const maxDate = new Date('2027-01-30');
             if (selectedDate < currentDate || selectedDate > maxDate) {
-              alert('The selected date must be between today and 30-01-2027. Please choose a valid date.');
+              alert('The selected date must be between today and 2 years from today. Please choose a valid date.');
               input.value = ''; // Clear the invalid date
             }
           });
@@ -135,6 +141,12 @@
     evaluateButton.addEventListener('click', async () => {
       const contractType = contractDropdown.value;
       const inputs = Array.from(parametersDiv.querySelectorAll('input, select')).map(input => input.value);
+
+      // Validate: Ensure all inputs are filled
+      if (inputs.some(value => value === '')) {
+        alert('Please fill in all the required fields before evaluating the contract.');
+        return; // Stop request
+      }
 
       try {
         const response = await fetch('http://localhost:12125/evaluate', {

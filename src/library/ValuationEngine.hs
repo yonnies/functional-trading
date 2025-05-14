@@ -13,7 +13,7 @@ import Control.Monad.Except
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
 
----------------------------- Type-checker ----------------------------
+------------------------- Validity Checker -------------------------
 
 validityCheck :: Contract -> Date -> Either Error ()
 validityCheck None _ = Left "Error: Contract has no acquisition date set."
@@ -36,7 +36,7 @@ validityCheck (AcquireOnBefore d2 _) d1
   | d2 < d1 = Left "Error: Top level contract with an expiry earlier than the model start date is prohibited."
   | otherwise = Right ()
 
-------------------------- Optimisation layer -------------------------
+------------------------- Optimisation Layer -------------------------
 
 optimiseContract :: Contract -> Contract
 optimiseContract c = case c of
